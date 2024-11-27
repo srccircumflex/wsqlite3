@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wsqlite3"
+authors = [
+    {name = "Adrian F. Hoefflin", email = "srccircumflex@outlook.com"},
+]
+description = "WSQLite3 (WebSocket SQLite3) is a simple and lightweight solution to manage access from multiple processes (or threads) to SQLite3 databases."
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = [
+    "sql", "sqlite", "sqlite3", "threadsave", "database server", "database service", "session manager",
+    "websocket", "wsqlite3", "sqlite3 threadsave", "threadsave sqlite3"
+]
+license = {text = "MIT License"}
+classifiers = [
+    "Topic :: Database",
+    "Topic :: Database :: Database Engines/Servers",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "wsdatautil>=1.1",
+]
+dynamic = ["version"]
+
+[tool.setuptools.dynamic]
+version = {attr = "wsqlite3.__version__"}
+
+[project.urls]
+Documentation = "https://srccircumflex.github.io/wsqlite3"
+Repository = "https://github.com/srccircumflex/wsqlite3"

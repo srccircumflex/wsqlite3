@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>WSQLite3</title>
+
+    <meta name="description" content="WSQLite3 is a simple and lightweight solution to access a SQLite3 database from multiple threads or processes."/>
+    <meta name="keywords" content="sqlite sqlite3 sql ws wss websocket database session-manager multithreading multiprocessing data-manager"/>
+    <meta name="author" content="Adrian F. Hoefflin" />
+    <meta name="copyright" content="Adrian F. Hoefflin" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+
+    <style>@import url('md.css')</style>
+
+    <style>
+      .__curly-bracket {
+        color: #D0C5CE;
+        font-weight: bold;
+      }
+      .__order-section {
+        color: #C636AE;
+        font-weight: bold;
+      }
+      .__order-section-view {
+        color: #C636AE;
+        font-style: italic;
+      }
+      .__input-field {
+        color: #7FAE4F;
+        font-style: italic;
+      }
+      .__response-field {
+        color: #9D3824;
+        font-style: italic;
+      }
+      .__order-section-description {
+        color: gray;
+        font-style: italic;
+      }
+      .__error-handling-field {
+        font-style: italic;
+        opacity: 0.65;
+      }
+      .__l0 {
+        padding-left: 30px;
+      }
+      .__l1 {
+        padding-left: 50px;
+      }
+      .__l2 {
+        padding-left: 20px;
+      }
+      .__l3 {
+        padding-left: 90px;
+      }
+      body {
+        background: #1E1F22;
+        color: #BCBEC4;
+      }
+      details[open] > summary > span {
+        display: none;
+      }
+      details[open] > summary {
+        border-top: 2px solid;
+      }
+      details[open] > summary::before {
+        content: "· · ·";
+        font-weight: bold;
+      }
+    </style>
+    <style>
+      t_any::before {
+        color: #BE7758;
+        content: "any";
+      }
+      t_any {
+        color: #DBA790;
+      }
+      t_truthy::before {
+        color: #BE7758;
+        content: "truthy";
+      }
+      t_truthy {
+        color: #DBA790;
+      }
+      t_none::before {
+        color: #BE7758;
+        content: "none";
+      }
+      t_float::before {
+        color: #5E77BF;
+        content: "float";
+      }
+      t_float {
+        color: #76a0d5;
+      }
+      t_int::before {
+        color: #5E77BF;
+        content: "int";
+      }
+      t_int {
+        color: #76a0d5;
+      }
+      t_bool::before {
+        color: #5E77BF;
+        content: "boolean";
+      }
+      t_bool {
+        color: #76a0d5;
+      }
+      t_str::before {
+        color: #63A571;
+        content: "string";
+      }
+      t_str {
+        color: #aebba9;
+      }
+      t_list::before {
+        color: #5E77BF;
+        content: "[";
+      }
+      t_list {
+        color: #76a0d5;
+      }
+      t_list::after {
+        color: #5E77BF;
+        content: "]";
+      }
+      t_dict {
+        color: #76a0d5;
+      }
+      t_dict::before {
+        color: #5E77BF;
+        content: "{";
+      }
+      t_dict::after {
+        color: #5E77BF;
+        content: "}";
+      }
+      t_ser::before {
+        color: #53A0E9;
+        content: "Serializable";
+      }
+    </style>
+    <style>
+      o_conn::before {
+        content: "wsqlite3.service.Connection";
+        font-weight: bold;
+      }
+      o_thread::before {
+        content: "wsqlite3.service.ConnectionThread";
+        font-weight: bold;
+      }
+      o_server::before {
+        content: "wsqlite3.service.Server";
+        font-weight: bold;
+      }
+      o_cur::before {
+        content: "wsqlite3.service.Cursor";
+        font-weight: bold;
+      }
+    </style>
+    <!--[if lt IE 9]>
+      <script>
+        document.createElement("t_any");
+        document.createElement("t_truthy");
+        document.createElement("t_float");
+        document.createElement("t_str");
+        document.createElement("t_list");
+        document.createElement("t_dict");
+        document.createElement("t_ser");
+        document.createElement("t_bool");
+        document.createElement("t_int");
+        document.createElement("t_none");
+        document.createElement("o_conn");
+        document.createElement("o_thread");
+        document.createElement("o_server");
+        document.createElement("o_cur");
+      </script>
+    <![endif]-->
+    <style>
+      body {
+        display: flex;
+      }
+      .content {
+        position: absolute;
+        top: 0;
+        left: 207px;
+        bottom: 0;
+        right: 0;
+        padding: 8px;
+        padding-left: 24px;
+        overflow: scroll;
+      }
+      .side {
+        display: unset;
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        padding: 8px;
+        overflow: scroll;
+        width: 200px;
+        background: #25272d;
+      }
+      .sep {
+        position: absolute;
+        top: 0;
+        left: 200px;
+        bottom: 0;
+        width: 7px;
+        background: #4E5362;
+        cursor: pointer;
+      }
+      td {
+        border: 1px solid gray;
+        padding: 5px;
+      }
+    </style>
+    <style>
+      .markdown-body {
+        margin: unset !important;
+        max-width: 800px;
+      }
+      :not(pre) > code[class*="language-"], pre[class*="language-"] {
+        background-color: #26282b !important;
+        color: #dfe8f0;
+      }
+      code[class*="language-"], pre[class*="language-"] {
+        text-shadow: unset !important;
+      }
+      .token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string {
+        background: hsla(0, 8.4%, 16.3%, 0.5) !important;
+      }
+      .markdown-body .highlight pre, .markdown-body pre {
+        background-color: #26282b !important;
+        color: #dfe8f0;
+      }
+      .markdown-body pre code {
+        color: #dfe8f0;
+      }
+    </style>
+    <script>
+      function toggle_collapse_all () {
+        details = document.getElementsByTagName("details")
+        open = !details[0].open
+        if (open) {
+          document.getElementById("toggle_collapse_all").children[0].innerHTML = "&#9660;"
+        } else {
+          document.getElementById("toggle_collapse_all").children[0].innerHTML = "&#9654;"
+        }
+        for (i=0; i<details.length; i++) {
+          details[i].open = open
+        }
+      }
+
+      <!--fixme-->
+      <!--document.addEventListener('DOMContentLoaded', toggle_collapse_all)-->
+
+    </script>
+    <script>
+      function toggle_side () {
+        side = document.getElementById("side")
+        sep = document.getElementById("sep")
+        content = document.getElementById("content")
+        console.log(side.style.display)
+        if (!side.style.display | side.style.display == "unset") {
+          side.style.display = "none"
+          sep.style.left = "0"
+          content.style.left = "7px"
+        } else {
+          side.style.display = "unset"
+          sep.style.left = "200px"
+          content.style.left = "207px"
+        }
+      }
+    </script>
+    <style>
+      #toggle_collapse_all {
+        font-size: 13px;
+        cursor: pointer;
+        with: 100%;
+        text-align: right;
+        padding-right: 10px;
+        margin-bottom: 10px;
+        border-bottom: 1px solid;
+      }
+    </style>
+    <style>
+      ul {
+        font-size: 14px;
+        padding-left: 7px;
+      }
+      ul ul {
+        font-size: 14px;
+        padding-left: 14px;
+      }
+      li {
+        padding-top: 7px
+      }
+      li a {
+        color: #BCBEC4;
+        font-weight: bold;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+
+  <div class="side" id="side">
+
+    <div style="text-align: center;">
+      <a href="#wsqlite3" style="text-decoration: none;color:unset;">
+        <div style="display:inline-block">
+          <img src="https://raw.githubusercontent.com/srccircumflex/wsqlite3/main/docs/logo.png" alt="logo">
+        </div>
+        <div style="display:inline-block;vertical-align: bottom; margin-bottom: 20px;text-decoration: none;">
+          <span style="color:#266ed9">W</span><span style="border-bottom:1px solid #266ed9"><span style="color:#266ed9">S</span><span>QL</span><span>ite3</span></span>
+        </div>
+      </a>
+    </div>
+    <hr>
+    <ul>
+      <li><a href="#project-wordings">Project Wordings</a></li>
+      <li><a href="#the-service-module">The service module</a></li>
+      <li>
+        <a href="#orders">Orders</a>
+        <ul>
+          <li><a href="#How-to-deal-with-binary-data-from-to-the-database">How to deal with binary data from/to the database</a></li>
+          <li>
+            <a href="#structure">Structure</a>
+            <ul>
+              <li><a href="#struc-ping"><span class="__order-section">"ping"</span></a></li>
+              <li><a href="#struc-_exec"><span class="__order-section">"_exec"</span></a></li>
+              <li><a href="#struc-_getattr"><span class="__order-section">"_getattr"</span></a></li>
+              <li><a href="#struc-connection"><span class="__order-section">"connection"</span></a></li>
+              <li><a href="#struc-server"><span class="__order-section">"server"</span></a></li>
+              <li><a href="#struc-thread"><span class="__order-section">"thread"</span></a></li>
+              <li><a href="#struc-db"><span class="__order-section">"db"</span></a></li>
+              <li><a href="#struc-broadcast"><span class="__order-section">"broadcast"</span></a></li>
+              <li><a href="#struc-broadcast"><span class="__response-field">"errors"</span></a></li>
+              <li><a href="#struc-broadcast"><span class="__response-field">"error"</span></a></li>
+            </ul>
+          </li>
+         </ul>
+      </li>
+      <li>
+        <a href="#error-handling">Error Handling</a>
+        <ul>
+          <li><a href="#own-exception-types">Own Exception Types</a></li>
+          <li><a href="#error-handling-when-processing-orders">Error handling when processing orders</a></li>
+          <li><a href="#errorcodes">Errorcodes</a></li>
+          <li><a href="#error-handling-after-fatal-errors-during-order-processing">Error handling after fatal errors during order processing</a></li>
+        </ul>
+      </li>
+    </ul>
+
+  </div>
+
+  <div class="sep" id="sep" onclick="toggle_side()"></div>
+
+  <a href="https://github.com/srccircumflex/wsqlite3" target="_blank" style="position: absolute;top: 26px; right: 22px;color: #db54d9; z-index:100;">
+    <svg xmlns="http://www.w3.org/2000/svg" height="20" viewBox="0 0 16 16" width="20" aria-hidden="true" class="d-block"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path></svg>
+  </a>
+
+  <a href="https://pypi.org/project/wsqlite3" target="_blank" style="position: absolute;top: 22px; right: 62px;color: #db54d9; z-index:100;">
+    <img src="https://pypi.org/static/images/logo-small.8998e9d1.svg" alt="pypi.org/wsqlite3" style="height: 24px;">
+  </a>
+
+  <div class="content" id="content">
+
+    <div style="max-width: 1000px;">
+
+      <div style="padding:10px;padding-top:25px;display:flex;align-items:end">
+
+        <div style="display:inline-block">
+          <h1 id="wsqlite3">
+            <span style="color:#266ed9">W</span><span style="border-bottom:1px solid #266ed9"><span style="color:#266ed9">S</span><span>QL</span><span>ite3</span></span>
+            <code>(under development)</code>
+          </h1>
+        </div>
+      </div>
+      <p>
+        <b>WSQLite3</b> (<cite>WebSocket SQLite3</cite>) is a simple and lightweight solution to manage
+        access from multiple processes (or threads) to <b>SQLite3</b> databases.
+      </p>
+
+      <span><b><cite>What it is and what it is not:</cite></b></span>
+      <div style="padding-left:30px;border-left:3px solid #266ed9">
+        <p>
+          The focus of <b>WSQLite3</b> is on simple local session management of multiple instances of a program or
+          compatibilization of different programs. <b>WSQLite3</b> is not intended as a database in a wide-ranging system for
+          multiple end users. For this, other advanced database systems with client servers should be used.
+        </p>
+        <p>
+          <mark>
+            <b>WSQLite3</b> in the basic version is designed for <cite>friendly</cite> connections,
+            an SSL is NOT implemented and there is NO permission handling
+            (Caution: <b>WSQLite3</b> also allows remote code execution).
+          </mark>
+        </p>
+      </div>
+      <span><b><cite>How it works and properties:</cite></b></span>
+      <div style="padding-left:30px;border-left:3px solid #266ed9">
+        <p>
+          <b>WSQLite3</b> manages connections to <b>SQLite3</b> databases for multiple clients per server.
+          The communication via the <b>WebSocket</b> protocol with <b>JSON</b> data provides simple and high compatibility
+          between different programs and programming languages.
+          The focus of the project is on the <b>WSQLite3 service</b>, which is intended as an independent process.
+          For complex projects, a separate implementation of the client side should be embedded.
+        </p>
+      </div>
+
+      <hr>
+
+      <h2 id="project-wordings">Project Wordings</h2>
+      <table>
+        <tbody>
+        <tr><td><cite>Connection</cite> (without direct reference to sql)</td><td>refers to the <o_conn></o_conn> object of the <o_server></o_server></td></tr>
+        <tr><td><cite>Connection</cite> (with direct reference to sql)</td><td>refers to the <o_server></o_server>'s <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection" target="_blank">sqlite3.Connection</a> to the database</td></tr>
+        <tr><td><cite>Cursor</cite></td><td>refers to the <o_cur></o_cur> object, a derivative of <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor" target="_blank">sqlite3.Cursor</a> (interface for database operations)</td></tr>
+        <tr><td><cite>side/main</cite> (with direct reference to cursor)</td><td>the main cursor refers to the cursor managed by the <o_server></o_server>, whereas a side cursor is only managed by its own connection and does not guarantee consistent results</td></tr>
+        <tr><td><cite>Order</cite></td><td>refers to incoming order JSONs that are processed on the <o_server></o_server> side and outgoing order JSONs</td></tr>
+        </tbody>
+      </table>
+      <p></p>
+
+      <h2 id="the-service-module">The service module</h2>
+      <p>The objects in the service module of <b>WSQLite3</b> offer several interfaces and preliminary work for inheritance in order to add application-related functionalities.</p>
+      <p>The main object is the <o_server></o_server>, which in its simplest form can be defined for example by</p>
+      <article class="markdown-body"><pre><code class="fenced-code-block language-python">server <span class="token operator">=</span> Server<span class="token punctuation">(</span>sqlite3<span class="token punctuation">.</span>connect<span class="token punctuation">(</span><span class="token string">":memory:"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">"localhost"</span><span class="token punctuation">,</span> <span class="token number">9000</span><span class="token punctuation">)</span></code></pre></article>
+      <p>and started via</p>
+      <article class="markdown-body"><pre><code class="fenced-code-block language-python">server<span class="token punctuation">.</span>run<span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre></article>
+      <p>or as a daemon thread via</p>
+
+      <article class="markdown-body">
+<pre><code class="fenced-code-block language-python">server<span class="token punctuation">.</span>daemon <span class="token operator">=</span> <span class="token boolean">True</span>
+server<span class="token punctuation">.</span>start<span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre>
+      </article>
+
+      <p>
+        By default, the <o_server></o_server> accepts an unlimited number of connections
+        (<cite>connections_per_thread</cite>), each of which is
+        processed asynchronously as a connection object in the same thread.  Depending on the use case/expected
+        number of connections, it may be useful to split the connections across multiple
+        <cite>threads</cite>, even if they are asynchronous.
+      </p>
+
+      <h2 id="orders">Orders</h2>
+      <p>
+        Orders to the <o_server></o_server> are placed as JSON as described <a href="#structure">below</a>, single or in a list
+        <code class="fenced-code-block language-python"><span class="token punctuation">[</span><span class="token operator">&lt;</span>order<span class="token operator">&gt; </span><span class="token punctuation">,</span> <span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">]</span></code>.
+        The sequence in which the order (sub)sections and their instructions are listed here corresponds to the sequence of <o_server></o_server>-side execution (in the basic version).
+      </p>
+      <p>Order (sub)sections are basically optional. Depending on the section, a specific instruction pattern may be expected. As a general rule, an instruction that is not set but is expected leads to a KeyError; if a more specific instruction pattern is expected but not fulfilled, this leads to an OrderError (see also <a href="#error-handling">Error Handling</a>).</p>
+      <p>In the basic version, the entire order JSON is otherwise NOT checked for plausibility, unknown (or incorrectly written or set in the wrong place) sections or instructions are simply ignored <cite>(however, values in the methods are obtained via dict.pop)</cite>.</p>
+      <p>The return value is usually:</p>
+
+      <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  <span class="token property">"orders"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span>
+      &lt;orders&gt;...<span class="token punctuation">,</span>
+      <span class="token property">"errors"</span><span class="token operator">:</span> (<span class="token number">0</span>)|(code)<span class="token punctuation">,</span>
+      <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred&gt;
+    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+    ...
+  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token property">"errors"</span><span class="token operator">:</span> (<span class="token number">0</span>)|(code)<span class="token punctuation">,</span>
+  <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred&gt;
+<span class="token punctuation">}</span></code></pre>
+      </article>
+
+      <p>(see also <a href="#error-handling">Error Handling</a>)</p>
+      <p>The outgoing order is structurally the same as the incoming order and is made up of valid sections that were in the order and the return fields according to the instructions.</p>
+      <p>The value under "errors" indicates whether errors have occurred in one of the sections (see also <a href="#error-handling">Error Handling</a>).</p>
+
+      <h3 id="How-to-deal-with-binary-data-from-to-the-database">How to deal with binary data from/to the database</h3>
+      <p>
+        As a pure text-based data format, bytes cannot be transferred directly via <b>JSON</b>. Therefore, binary data
+        is always transmitted in <b>base64</b> format. If a binary value is retrieved from the database on the server
+        side, it is transmitted to the client as a <b>base64</b> string. The client must therefore be able to determine
+        when and where <b>base64</b> strings appear that need to be decoded, as the coding cannot be distinguished.
+      </p>
+      <p>
+        On the other hand, in order to be able to transmit binary data to the server, the
+        <span class="__input-field">"tb:params"</span> statement (which replaces the
+        <span class="__input-field">"params"</span> statement) is available for database operations.
+        <t_str></t_str>'s within the object passed to it must be prefixed with either
+        <span class="__input-field">"t:"</span> or <span class="__input-field">"b:"</span>:
+      </p>
+      <table>
+        <tbody>
+        <tr><td><span class="__input-field">"t:"</span></td><td>following characters are plain <b>text</b> and are not decoded on the server side</td></tr>
+        <tr><td><span class="__input-field">"b:"</span></td><td>following characters are a <b>base64</b> string that is decoded into bytes on the server side</td></tr>
+        </tbody>
+      </table>
+<article class="markdown-body"><pre><code class="fenced-code-block language-json">server &lt;&lt; <span class="token punctuation">{</span>
+  <span class="token property">"db"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+    <span class="token property">"exec"</span><span class="token operator">:</span> <span class="token string">"INSERT INTO main VALUES (?)"</span><span class="token punctuation">,</span>
+    <span class="token property">"tb:params"</span><span class="token operator">:</span> <span class="token punctuation">[</span> <span class="token string">"t:Hello"</span><span class="token punctuation">,</span> <span class="token string">"b:V29ybGQ="</span> <span class="token punctuation">]</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+server &lt;&lt; <span class="token punctuation">{</span>
+  <span class="token property">"db"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+    <span class="token property">"exec"</span><span class="token operator">:</span> <span class="token string">"SELECT * FROM main"</span><span class="token punctuation">,</span>
+    <span class="token property">"fetchall"</span><span class="token operator">:</span> <span class="token boolean">true</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span>
+server &gt;&gt; <span class="token punctuation">{</span>
+  <span class="token property">"db"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+    <span class="token property">"fetch"</span><span class="token operator">:</span> <span class="token punctuation">[</span> <span class="token string">"Hello"</span><span class="token punctuation">,</span> <span class="token string">"V29ybGQ="</span> <span class="token punctuation">]</span>
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span><span class="token punctuation">[</span><span class="token string">"db"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"fetch"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span>.b64decode() == <span class="token string">"World"</span></code></pre></article>
+
+      <h3 id="structure">Structure</h3>
+
+      <div onclick="toggle_collapse_all()" id="toggle_collapse_all"><span>&#9654;</span><span>&nbsp;&nbsp;toggle collapse all</span></div>
+
+      <article>
+
+        <div class="__curly-bracket">{</div>
+        <div class="__l0" id="struc-ping"><span class="__order-section">"ping"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">ping the <o_server></o_server></span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <span class="__input-field">"ping"</span>: <t_any></t_any> –&gt; <span class="__response-field">"pong"</span>: <t_float>(ns timestamp)</t_float>,
+                <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
+              </span>
+            </summary>
+            <span class="__input-field">"ping"</span>: <t_any></t_any> –&gt; <span class="__response-field">"pong"</span>: <t_float>(ns timestamp)</t_float>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-_exec"><span class="__order-section">"_exec"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">remote code execution</span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <span class="__input-field">"code"</span>: <t_str>(pythoncode)</t_str> –&gt; <span class="__response-field">"result"</span>: <t_any></t_any>,
+                <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
+              </span>
+            </summary>
+            <span class="__input-field">"code"</span>: <t_str>(pythoncode)</t_str> –&gt; <span class="__response-field">"result"</span>: <t_any></t_any>
+            <p></p>
+            <p>
+              <span class="__response-field">"result"</span> is obtained by
+              <code class="fenced-code-block language-python"><span class="token builtin">globals</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"result"</span><span class="token punctuation">)</span> <span class="token keyword">or</span> <span class="token builtin">locals</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"result"</span><span class="token punctuation">)</span></code>
+              after <code class="fenced-code-block language-python"><span class="token keyword">exec</span><span class="token punctuation">(</span><span class="__input-field">"code"</span><span class="token punctuation">,</span> <span class="token builtin">globals</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token builtin">locals</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span></code>
+            </p>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-_getattr"><span class="__order-section">"_getattr"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">get attribute</span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <span class="__input-field">"of"</span>: <t_str>("connection"|"server"|"thread")</t_str>
+                <span class="__input-field">"path"</span>: <t_str>(attribute path)</t_str>
+                [ <span class="__input-field">"call"</span>: <t_list> <t_list>args</t_list>, <t_dict>kwargs</t_dict> </t_list> ]
+                –&gt; <span class="__response-field">"result"</span>: <t_any></t_any>,
+                <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
+              </span>
+            </summary>
+            <span class="__input-field">"of"</span>: <t_str>("connection"|"server"|"thread")</t_str>
+            <span class="__input-field">"path"</span>: <t_str>(attribute path)</t_str>
+            [ <span class="__input-field">"call"</span>: <t_list> <t_list>args</t_list>, <t_dict>kwargs</t_dict> </t_list> ]
+            –&gt; <span class="__response-field">"result"</span>: <t_any></t_any>
+            <p></p>
+            <p>
+              <span class="__input-field">"of"</span> describes the object from which the attribute is to be obtained.
+              <span class="__input-field">"path"</span> represents a direct attribute name or a python attribute path ("." separated).
+              If <span class="__input-field">"call"</span> is defined, the obtained object is called with
+              <code class="fenced-code-block language-python"><span class="token punctuation">(</span><span class="token operator">*</span>args<span class="token punctuation">,</span> <span class="token operator">**</span>kwargs<span class="token punctuation">)</span></code>.
+              <span class="__response-field">"result"</span> is the attribute respectively the result from the call.
+            </p>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-connection"><span class="__order-section">"connection"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description"><o_conn></o_conn> operations</span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <span class="__input-field">"get"</span>: <t_str>(uuid)</t_str> | <t_dict>description record, ...</t_dict>
+                [ <span class="__input-field">"set"</span>: <t_str>("session"|"response")</t_str> | <t_truthy></t_truthy> ],
+                <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(uuid)</t_str>,
+                <span class="__input-field">"send"</span>: <t_ser></t_ser>,
+                <span class="__input-field">"description"</span>: <t_dict>"set": <t_dict></t_dict> "update": <t_dict></t_dict> "pop": <t_any>(key)</t_any>}</t_dict> | <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_dict></t_dict> <span class="__response-field">"description.pop"</span>: <t_any></t_any>,
+                <span class="__input-field">"properties"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"properties"</span>: <t_dict>properties</t_dict>,
+                <span class="__input-field">"destroy"</span>: <t_truthy></t_truthy>,
+                <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
+              </span>
+            </summary>
+            <span class="__input-field">"get"</span>: <t_str>(uuid)</t_str> | <t_dict>description record, ...</t_dict>
+            <span class="__input-field">"set"</span>: <t_truthy></t_truthy> | <t_str>("session"|"response")</t_str>
+            <p></p>
+            <p>
+              Via <span class="__input-field">"get"</span> a foreign connection object can be obtained.
+              If <t_dict>description record, ...</t_dict> are transferred, the first connection object is used whose description records are the same as the parameterization.
+              In the following, all instructions in the section refer to the connection received.
+              If no connection is found via the id or entries, an IdError is raised.
+              With the <span class="__input-field">"get"</span> instruction, the <span class="__input-field">"set"</span> instruction is processed,
+              this can extend the scope of the effect of get:
+            </p>
+            <table>
+              <tbody>
+              <tr><td><t_truthy></t_truthy></td><td>also references the connection to all subsequent sections of the order</td></tr>
+              <tr><td><t_str>("session")</t_str></td><td>references the connection to the entire session</td></tr>
+              <tr><td><t_str>("response")</t_str></td><td>references the connection as the connection to be sent back to</td></tr>
+              </tbody>
+            </table>
+            <p></p>
+            <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(uuid)</t_str>
+            <p></p><p>Query the id of the current connection.</p>
+            <span class="__input-field">"send"</span>: <t_ser></t_ser>
+            <p></p><p>Send to the client of the current connection.</p>
+            <span class="__input-field">"description"</span>: <t_dict>"set": <t_dict></t_dict> "update": <t_dict></t_dict> "pop": <t_any>(key)</t_any>}</t_dict> | <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_dict></t_dict> <span class="__response-field">"description.pop"</span>: <t_any></t_any>
+            <p></p><p>Query the description or edit it. description is a dict of the <o_conn></o_conn> object that can be freely defined by the user and can be used for identification, for example.</p>
+            <span class="__input-field">"properties"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"properties"</span>: <t_dict>properties</t_dict>
+            <p></p>
+            <p>Query the properties of the current connection:</p>
+            <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  <span class="token property">"id"</span><span class="token operator">:</span> &lt;uuid&gt;<span class="token punctuation">,</span>
+  <span class="token property">"description"</span><span class="token operator">:</span> &lt;description&gt;<span class="token punctuation">,</span>
+  <span class="token property">"timestamp"</span><span class="token operator">:</span> &lt;creation time&gt;<span class="token punctuation">,</span>
+  <span class="token property">"address"</span><span class="token operator">:</span> &lt;client socket (host<span class="token punctuation">,</span> port)&gt;<span class="token punctuation">,</span>
+  <span class="token property">"thread"</span><span class="token operator">:</span> &lt;thread.properties&gt;<span class="token punctuation">,</span>
+<span class="token punctuation">}</span></code></pre>
+            </article>
+            <span class="__input-field">"destroy"</span>: <t_truthy></t_truthy>
+              <p></p><p>Close the current connection.</p>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-server"><span class="__order-section">"server"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description"><o_server></o_server> operations</span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <span class="__input-field">"connections"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"connections"</span>: <t_dict>connection.id: <t_dict>connection.properties</t_dict>, ...</t_dict>,
+                <span class="__input-field">"threads"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"threads"</span>: <t_dict>thread.id: <t_dict>thread.properties</t_dict>, ...</t_dict>,
+                <span class="__input-field">"shutdown"</span>: <t_truthy></t_truthy> | <t_str>("force")</t_str>,
+                <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
+              </span>
+            </summary>
+            <span class="__input-field">"connections"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"connections"</span>: <t_dict>connection.id: <t_dict>connection.properties</t_dict>, ...</t_dict>
+            <p></p><p>Query a <o_conn></o_conn> register:</p>
+            <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  &lt;connection.id&gt;<span class="token operator">:</span> <span class="token punctuation">{</span>&lt;connection.properties&gt;<span class="token punctuation">}</span><span class="token punctuation">,</span>
+  ...
+<span class="token punctuation">}</span></code></pre>
+            </article>
+            <span class="__input-field">"threads"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"threads"</span>: <t_dict>thread.id: <t_dict>thread.properties</t_dict>, ...</t_dict>
+            <p></p><p>Query a thread register:</p>
+            <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  &lt;thread.id&gt;<span class="token operator">:</span> <span class="token punctuation">{</span>&lt;thread.properties&gt;<span class="token punctuation">}</span><span class="token punctuation">,</span>
+  ...
+<span class="token punctuation">}</span></code></pre>
+            </article>
+            <span class="__input-field">"shutdown"</span>: <t_truthy></t_truthy> | <t_str>("force")</t_str>
+              <p></p><p>Shutdown the <o_server></o_server>. If <t_str>("force")</t_str> is passed, the system does not wait for the session lock of a connection to be released.</p>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-thread"><span class="__order-section">"thread"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description"><o_thread></o_thread> operations</span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <span class="__input-field">"get"</span>: <t_str>(uuid)</t_str>,
+                <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(uuid)</t_str>,
+                <span class="__input-field">"broadcast"</span>: <t_ser></t_ser> <span class="__input-field">"broadcast.self"</span>: <t_truthy></t_truthy>,
+                <span class="__input-field">"connections"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"connections"</span>: <t_dict>connection.id: <t_dict>connection.properties</t_dict>, ...</t_dict>,
+                <span class="__input-field">"properties"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"properties"</span>: <t_dict>properties</t_dict>,
+                <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
+              </span>
+            </summary>
+            <span class="__input-field">"get"</span>: <t_str>(uuid)</t_str>
+            <p></p>
+            <p>
+              Via <span class="__input-field">"get"</span> a specific <o_thread></o_thread> object can be obtained.
+              In the following, all instructions in the section refer to the thread received.
+              If no thread is found via the id, an IdError is raised.
+            </p>
+            <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(uuid)</t_str>
+            <p></p><p>Query the id of the current <o_thread></o_thread>.</p>
+            <span class="__input-field">"broadcast"</span>: <t_ser></t_ser>
+            <span class="__input-field">"broadcast.self"</span>: <t_truthy></t_truthy>
+            <p></p>
+            <p>
+              Send the <t_ser></t_ser> as a broadcast to all <o_conn></o_conn>'s of the thread
+              (if <span class="__input-field">"broadcast.self"</span> is set, also to the <o_conn></o_conn> that orders the broadcast):
+            </p>
+            <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  <span class="token property">"broadcast"</span><span class="token operator">:</span> &lt;<t_ser></t_ser>&gt;<span class="token punctuation">,</span>
+  <span class="token property">"from"</span><span class="token operator">:</span> &lt;uuid&gt;
+<span class="token punctuation">}</span></code></pre>
+            </article>
+            <span class="__input-field">"connections"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"connections"</span>: <t_dict>connection.id: <t_dict>connection.properties</t_dict>, ...</t_dict>
+            <p></p><p>Query a <o_conn></o_conn> register of the current <o_thread></o_thread>:</p>
+            <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  &lt;connection.id&gt;<span class="token operator">:</span> <span class="token punctuation">{</span>&lt;connection.properties&gt;<span class="token punctuation">}</span><span class="token punctuation">,</span>
+  ...
+<span class="token punctuation">}</span></code></pre>
+            </article>
+            <span class="__input-field">"properties"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"properties"</span>: <t_dict>properties</t_dict>,
+            <p></p><p>Query the properties of the current <o_thread></o_thread>:</p>
+            <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  <span class="token property">"id"</span><span class="token operator">:</span> &lt;uuid&gt;<span class="token punctuation">,</span>
+  <span class="token property">"timestamp"</span><span class="token operator">:</span> &lt;start time&gt;<span class="token punctuation">,</span>
+  <span class="token property">"thread.ident"</span><span class="token operator">:</span> &lt;<a href="https://docs.python.org/3.10/library/threading.html#threading.Thread.ident" target="_blank">thread.ident</a>&gt;<span class="token punctuation">,</span>
+  <span class="token property">"TID"</span><span class="token operator">:</span> &lt;<a href="https://docs.python.org/3.10/library/threading.html#threading.Thread.native_id" target="_blank">thread.native_id</a>&gt;<span class="token punctuation">,</span>
+<span class="token punctuation">}</span></code></pre>
+            </article>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-db"><span class="__order-section">"db"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">database access</span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <span class="__input-field">"keys"</span>: <t_list><t_truthy>(key)</t_truthy> | <t_none></t_none>, ...</t_list>,
+
+                <span class="__input-field">"open"</span>: <t_list><t_list>sqlite3-args</t_list>, <t_dict>sqlite3-kwargs</t_dict></t_list> [ <span class="__input-field">"get"</span>: <t_truthy>(key)</t_truthy> | <t_none></t_none> ] –&gt; <span class="__response-field">"open"</span>: <t_truthy>(key)</t_truthy> | <t_none></t_none>,
+                <span class="__input-field">"get"</span>: <t_truthy>(key)</t_truthy>,
+
+                *<span class="__input-field">"side"</span>: <t_truthy></t_truthy>
+                *<span class="__input-field">"force"</span>: <t_truthy></t_truthy>
+                *<span class="__input-field">"sudo"</span>: <t_truthy></t_truthy>;
+
+                <span class="__input-field">"lock"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"lock"</span>: <t_str>(uuid)</t_str> | <t_none></t_none>,
+
+                <span class="__input-field">"arraysize"</span>: <t_bool>(True)</t_bool> | <t_int>(size)</t_int> –&gt; <span class="__response-field">"arraysize"</span>: <t_int>(size)</t_int>,
+                <span class="__input-field">"description"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_list><t_list><t_str>(column name)</t_str>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none></t_list>, ...</t_list> | <t_none></t_none>,
+                <span class="__input-field">"lastrowid"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"lastrowid"</span>: <t_int></t_int> | <t_none></t_none>,
+                <span class="__input-field">"rowcount"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"rowcount"</span>: <t_int></t_int>,
+
+                ( <span class="__input-field">"script"</span>: <t_str>(SQL)</t_str> )
+                | ( <span class="__input-field">"exec"</span>: <t_str>(SQL)</t_str> [ <span class="__input-field">"params"</span>|<a href="#How-to-deal-with-binary-data-from-to-the-database"><span class="__input-field">"tb:params"</span></a>: <t_list>placeholder bindings</t_list> | <t_dict>placeholder bindings</t_dict> ] )
+                | ( <span class="__input-field">"many"</span>: <t_str>(SQL)</t_str> <span class="__input-field">"params"</span>|<a href="#How-to-deal-with-binary-data-from-to-the-database"><span class="__input-field">"tb:params"</span></a>: <t_list><t_list>placeholder bindings</t_list> | <t_dict>placeholder bindings</t_dict></t_list> ),
+
+                (
+                (<span class="__input-field">"fetchone"</span>|<span class="__input-field">"fetchall"</span>: <t_truthy></t_truthy>)
+                | (<span class="__input-field">"fetchmany"</span>: <t_bool>(True)</t_bool> | <t_int>(size)</t_int>)
+                )
+                –&gt; <span class="__response-field">"fetch"</span>: <t_list><t_list>database record</t_list>, ...</t_list> | <t_none></t_none>,
+
+                <span class="__input-field">"release"</span>: <t_truthy></t_truthy> | <t_str>("finally")</t_str> –&gt; <span class="__response-field">"release"</span>: <t_bool></t_bool>,
+
+                <span class="__input-field">"rollback"</span>: <t_truthy></t_truthy>,
+                <span class="__input-field">"commit"</span>: <t_truthy></t_truthy>,
+
+                <span class="__input-field">"close"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"close"</span>: <t_bool></t_bool>,
+
+                <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
+              </span>
+            </summary>
+
+            <span class="__input-field">"keys"</span>: <t_list><t_truthy>(key)</t_truthy> | <t_none></t_none>, ...</t_list>,
+            <p></p>
+            <p>
+              Query the database key list.
+            </p>
+
+            <span class="__input-field">"open"</span>: <t_list> <t_list>sqlite3-args</t_list>, <t_dict>sqlite3-kwargs</t_dict> </t_list> [ <span class="__input-field">"get"</span>: <t_truthy>(key)</t_truthy> | <t_none></t_none> ] –&gt; <span class="__response-field">"open"</span>: <t_truthy>(key)</t_truthy> | <t_none></t_none>
+            <p></p>
+            <p>
+              Open and register a database.
+
+              <t_list> <t_list>sqlite3-args</t_list>, <t_dict>sqlite3-kwargs</t_dict> </t_list>
+              is passed to
+              <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.connect">sqlite3.connect</a>.
+
+              An individual session key can be transferred via the <span class="__input-field">"get"</span> field,
+              otherwise an uuid is generated and returned in <span class="__response-field">"open"</span>. If the field
+              is explicitly set to <t_none></t_none>, the database is set as the default database, which does not have
+              to be retrieved via the <span class="__input-field">"get"</span> instruction in the future.
+              Throws an ConfigurationError if the session key is already in use.
+
+              The following instructions of this order refer to this database.
+            </p>
+
+            <span class="__input-field">"get"</span>: <t_truthy>(key)</t_truthy>
+            <p></p>
+            <p>
+              Define a previously registered database to which the instructions refer.
+              If the field is not set, an attempt is made to obtain the default database.
+              Raises a ConfigurationError if the database is not registered.
+            </p>
+
+            *<span class="__input-field">"side"</span>: <t_truthy></t_truthy>
+            *<span class="__input-field">"force"</span>: <t_truthy></t_truthy>
+            *<span class="__input-field">"sudo"</span>: <t_truthy></t_truthy>
+            <p></p>
+            <p>
+              Parameterizes which/how a <o_cur></o_cur> is obtained for operations/closed.
+              By default, all values are <code class="fenced-code-block language-python"><span class="token boolean">False</span></code>.
+              If a <o_cur></o_cur> is successfully obtained and no OrderError is raised in the
+              section, it <b><cite>is locked to the current connection.</cite></b>
+            </p>
+
+            <table>
+              <tbody>
+
+              <tr>
+                <td>
+                  Evaluation of parameters for <b>execution</b> instructions
+                  (<span class="__input-field">"exec"</span> <span class="__input-field">"scrip"</span> <span class="__input-field">"many"</span>)
+                </td>
+                <td>
+                  <table>
+                    <tbody>
+                    <tr><td><span class="__input-field">"side"</span></td><td>get the side cursor instead of the main cursor (<a href="#project-wordings">wording</a>)</td></tr>
+                    <tr><td><span class="__input-field">"force"</span></td><td>get the cursor even if it is locked by the current connection</td></tr>
+                    <tr><td><span class="__input-field">"sudo"</span></td><td>get the cursor even if it is locked by another connection (has no effect with <span class="__input-field">"side"</span>)</td></tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  Evaluation of parameters for <b>fetch</b> instructions
+                  (<span class="__input-field">"fetchone"</span> <span class="__input-field">"fetchmany"</span> <span class="__input-field">"fetchall"</span>)
+                </td>
+                <td>
+                  <table>
+                    <tbody>
+                    <tr><td><span class="__input-field">"side"</span></td><td>get the side cursor instead of the main cursor (<a href="#project-wordings">wording</a>)</td></tr>
+                    <tr><td><span class="__input-field">"force"</span></td><td>get the cursor even if it is <b>NOT</b> locked (is not implied in <span class="__input-field">"sudo"</span>)</td></tr>
+                    <tr><td><span class="__input-field">"sudo"</span></td><td>get the cursor even if it is locked by another connection (has no effect with <span class="__input-field">"side"</span>)</td></tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  Evaluation of parameters for the <span class="__input-field">"release"</span> instruction
+                </td>
+                <td>
+                  <table>
+                    <tbody>
+                    <tr><td><span class="__input-field">"side"</span></td><td>get the side cursor instead of the main cursor (<a href="#project-wordings">wording</a>)</td></tr>
+                    <tr><td><span class="__input-field">"force"</span></td><td><cite>not evaluated</cite></td></tr>
+                    <tr><td><span class="__input-field">"sudo"</span></td><td>get the cursor even if it is locked by another connection (has no effect with <span class="__input-field">"side"</span>)</td></tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+
+              <tr>
+                <td>
+                  Evaluation of parameters for the <span class="__input-field">"close"</span> instruction
+                </td>
+                <td>
+                  <table>
+                    <tbody>
+                    <tr><td><span class="__input-field">"side"</span></td><td>get the side cursor instead of the main cursor (<a href="#project-wordings">wording</a>)</td></tr>
+                    <tr><td><span class="__input-field">"force"</span></td><td>do not wait for the lock to be released and <b>close</b> the side-cursor/database <b>forcibly</b></td></tr>
+                    <tr><td><span class="__input-field">"sudo"</span></td><td>get the cursor even if it is locked by another connection (has no effect with <span class="__input-field">"side"</span>)</td></tr>
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+
+              </tbody>
+            </table>
+            <p></p>
+
+            <span class="__input-field">"lock"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"lock"</span>: <t_str>(uuid)</t_str> | <t_none></t_none>
+            <p></p><p>Query the id of the connection that locks the cursor.</p>
+
+            <p></p>
+            <span class="__input-field">"arraysize"</span>: <t_bool>(True)</t_bool> | <t_int>(size)</t_int> –&gt; <span class="__response-field">"arraysize"</span>: <t_int>(size)</t_int>
+            <p></p>
+            <p>
+              Query or set the attribute <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.arraysize" target="_blank">arraysize</a> of <o_cur></o_cur> (does not lock the cursor).
+            </p>
+            <span class="__input-field">"description"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_list><t_list><t_str>(column name)</t_str>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none></t_list>, ...</t_list> | <t_none></t_none>
+            <p></p>
+            <p>
+              Query the attribute <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.description" target="_blank">description</a> of <o_cur></o_cur> (does not lock the cursor).
+            </p>
+            <span class="__input-field">"lastrowid"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"lastrowid"</span>: <t_int></t_int> | <t_none></t_none>
+            <p></p>
+            <p>
+              Query the attribute <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.lastrowid" target="_blank">lastrowid</a> of <o_cur></o_cur> (does not lock the cursor).
+            </p>
+            <span class="__input-field">"rowcount"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"rowcount"</span>: <t_int></t_int>
+            <p></p>
+            <p>
+              Query the attribute <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.rowcount" target="_blank">rowcount</a> of <o_cur></o_cur> (does not lock the cursor).
+            </p>
+
+            <p></p>
+            ( <span class="__input-field">"script"</span>: <t_str>(SQL)</t_str> )
+            | ( <span class="__input-field">"exec"</span>: <t_str>(SQL)</t_str> [ <span class="__input-field">"params"</span>|<a href="#How-to-deal-with-binary-data-from-to-the-database"><span class="__input-field">"tb:params"</span></a>: <t_list>placeholder bindings</t_list> | <t_dict>placeholder bindings</t_dict> ] )
+            | ( <span class="__input-field">"many"</span>: <t_str>(SQL)</t_str> <span class="__input-field">"params"</span>|<a href="#How-to-deal-with-binary-data-from-to-the-database"><span class="__input-field">"tb:params"</span></a>: <t_list><t_list>placeholder bindings</t_list> | <t_dict>placeholder bindings</t_dict></t_list> )
+            <p></p>
+            <p>
+              Execute <t_str>(SQL)</t_str>. Exactly one instruction is expected within the section, otherwise an OrderError is raised.
+              If the cursor is locked, CursorLockedError is raised.
+            </p>
+            <table>
+              <tbody>
+              <tr><td><span class="__input-field">"script"</span>: <t_str>(SQL)</t_str></td><td><a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.executescript" target="_blank">sqlite3.Cursor.executescript</a></td></tr>
+              <tr><td><span class="__input-field">"exec"</span>: <t_str>(SQL)</t_str> [ <span class="__input-field">"params"</span>|<a href="#How-to-deal-with-binary-data-from-to-the-database"><span class="__input-field">"tb:params"</span></a>: <t_list>placeholder bindings</t_list> | <t_dict>placeholder bindings</t_dict> ]</td><td><a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.execute" target="_blank">sqlite3.Cursor.execute</a></td></tr>
+              <tr><td><span class="__input-field">"many"</span>: <t_str>(SQL)</t_str> <span class="__input-field">"params"</span>|<a href="#How-to-deal-with-binary-data-from-to-the-database"><span class="__input-field">"tb:params"</span></a>: <t_list><t_list>placeholder bindings</t_list> | <t_dict>placeholder bindings</t_dict></t_list></td><td><a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.executemany" target="_blank">sqlite3.Cursor.executemany</a></td></tr>
+              </tbody>
+            </table>
+            <p></p>
+
+            (
+            (<span class="__input-field">"fetchone"</span>|<span class="__input-field">"fetchall"</span>: <t_truthy></t_truthy>)
+            | (<span class="__input-field">"fetchmany"</span>: <t_bool>(True)</t_bool> | <t_int>(size)</t_int>)
+            )
+            –&gt; <span class="__response-field">"fetch"</span>: <t_list><t_list>database record</t_list>, ...</t_list> | <t_none></t_none>
+            <p></p>
+            <p>
+              Execute the corresponding fetch method. Only one instruction is allowed within the section, otherwise an OrderError is raised.
+              If no cursor is locked or cannot be obtained successfully, CursorNotLockedError respectively CursorLockedError is raised.
+            </p>
+            <table>
+              <tbody>
+              <tr><td><span class="__input-field">"fetchone"</span></td><td><a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.fetchone" target="_blank">sqlite3.Cursor.fetchone</a></td></tr>
+              <tr><td><span class="__input-field">"fetchall"</span></td><td><a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.fetchall" target="_blank">sqlite3.Cursor.fetchall</a></td></tr>
+              <tr><td><span class="__input-field">"fetchmany"</span></td><td><a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor.fetchmany" target="_blank">sqlite3.Cursor.fetchmany</a></td></tr>
+              </tbody>
+            </table>
+            <p></p>
+
+            <span class="__input-field">"release"</span>: <t_truthy></t_truthy> | <t_str>("finally")</t_str> –&gt; <span class="__response-field">"release"</span>: <t_bool></t_bool>
+            <p></p>
+            <p>
+              Release the lock on the cursor.
+              If <t_str>("finally")</t_str> is set, the cursor is automatically released if a fetch method has returned
+              <t_none></t_none> or the <span class="__input-field">"fetchall"</span> method has been used.
+              If cursor cannot be obtained successfully, CursorLockedError is raised.
+              Does nothing if the cursor is not locked.
+              Returns whether a release has been performed.
+            </p>
+
+            <span class="__input-field">"rollback"</span>: <t_truthy></t_truthy>
+            <p></p>
+            <p>
+              <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection.rollback" target="_blank">sqlite3.Connection.rollback</a>
+            </p>
+
+            <span class="__input-field">"commit"</span>: <t_truthy></t_truthy>
+            <p></p>
+            <p>
+              <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection.commit" target="_blank">sqlite3.Connection.commit</a>
+            </p>
+
+            <span class="__input-field">"close"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"close"</span>: <t_bool></t_bool>
+            <p></p>
+            <p>
+              In combination with <span class="__input-field">"side"</span>, only the side cursor is closed,
+              otherwise the database is closed and removed from the register.
+              Returns whether the closing was performed.
+            </p>
+
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-broadcast"><span class="__order-section">"broadcast"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">broadcasting</span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <span class="__input-field">"message"</span>: <t_ser></t_ser>,
+                <span class="__input-field">"self"</span>: <t_truthy></t_truthy>,
+                <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
+              </span>
+            </summary>
+            <span class="__input-field">"message"</span>: <t_ser></t_ser>
+            <span class="__input-field">"self"</span>: <t_truthy></t_truthy>
+            <p></p>
+            <p>
+              Send the <t_ser></t_ser> as a broadcast to all <o_conn></o_conn>'s
+              (if <span class="__input-field">"self"</span> is set, also to the <o_conn></o_conn> that orders the broadcast):
+            </p>
+            <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  <span class="token property">"broadcast"</span><span class="token operator">:</span> &lt;<t_ser></t_ser>&gt;<span class="token punctuation">,</span>
+  <span class="token property">"from"</span><span class="token operator">:</span> &lt;uuid&gt;
+<span class="token punctuation">}</span></code></pre>
+            </article>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-errors"><a href="#error-handling"><span class="__response-field">"errors"</span>:</a></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <t_int>(0)</t_int> | <t_int>(code)</t_int>
+              </span>
+            </summary>
+            <t_int>(0)</t_int> | <t_int>(code)</t_int>
+            <p></p>
+            <p>
+              This field is set according to
+              <a href="#errorcodes">error codes</a>
+              for each order.
+            </p>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-error"><a href="#error-handling"><span class="__response-field">"error"</span>:</a></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <t_none></t_none> | <a href="#exception-message"><b>Exception Message</b></a>
+              </span>
+            </summary>
+            <t_none></t_none> | <a href="#exception-message"><b>Exception Message</b></a>
+            <p></p>
+            <p>
+              This field is set to the last <a href="#exception-message"><b>Exception Message</b></a> that occurred within this order.
+            </p>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+      <div class="__curly-bracket">}</div>
+
+      </article>
+
+      <h2 id="error-handling">Error Handling</h2>
+      <h3 id="own-exception-types">Own Exception Types</h3>
+      <ul>
+        <li>CursorLockedError</li>
+        <li>CursorNotLockedError</li>
+        <li>OrderError</li>
+        <li>ConfigurationError</li>
+        <li>IdError</li>
+      </ul>
+      <h3 id="exception-catching">Exception catching</h3>
+      <p>All exceptions that are directly related to the processing of an order are caught and handled according to the next subchapter.</p>
+      <p>The handling of exceptions that are raised outside of this is described in the subsection after next.</p>
+
+      <h3 id="error-handling-when-processing-orders">Error handling when processing orders</h3>
+      <p>
+        The <span class="__input-field">"error"</span> instruction can be assigned to each section of the incoming order that contains instructions.
+        Possible parameters:
+      </p>
+        <table>
+          <tbody>
+          <tr><td><t_str>("cancel order")</t_str></td><td>cancels the entire order</td></tr>
+          <tr><td><t_str>("cancel session")</t_str></td><td>cancels the entire session</td></tr>
+          <tr><td><t_str>("destroy connection")</t_str></td><td>cancels the entire session and destroys the current connection</td></tr>
+          <tr><td><t_str>("shutdown server")</t_str></td><td>cancels the entire session and shuts down the server</td></tr>
+          <tr><td><t_str>("force shutdown server")</t_str></td><td>cancels the entire session and shuts down the server forcefully</td></tr>
+          <tr><td><t_str>("ignore")</t_str></td><td>continues to execute the following sections of the order</td></tr>
+          </tbody>
+        </table>
+      <p></p>
+      <p>
+        In addition, the <span class="__order-section">"db"</span> section evaluates whether the parameter
+        <t_str>("+rollback")</t_str> is appended
+        (e.g. <t_str>("cancel order +rollback")</t_str>).
+      </p>
+
+      <p>If the instruction is not set or is set differently, the entire session is canceled.</p>
+
+      <p>Regardless of the handling, the current section is canceled and the <span class="__response-field">"error"</span> field in the section of the outgoing order is set according to the error formatting. In the basic version this is:</p>
+
+      <article class="markdown-body" id="exception-message">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  <span class="token property">"type"</span><span class="token operator">:</span> &lt;exception class name&gt;<span class="token punctuation">,</span>
+  <span class="token property">"args"</span><span class="token operator">:</span> &lt;exception args&gt;<span class="token punctuation">,</span>
+  <span class="token property">"repr"</span><span class="token operator">:</span> &lt;representation of the exception&gt;<span class="token punctuation">,</span>
+  <span class="token property">"message"</span><span class="token operator">:</span> &lt;string of the exception&gt;<span class="token punctuation">,</span>
+  <span class="token property">"pypickle"</span><span class="token operator">:</span> &lt;the representative string of bytes of the picked object representation&gt;<span class="token punctuation">,</span>
+  <span class="token property">"params"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;the params attribute of the exception ( set in some <a href="#own-exception-types">Own Exception Types</a> )&gt;
+<span class="token punctuation">}</span></code></pre>
+      </article>
+
+      <p>
+        <span class="token property">"pypickle"</span>: Only useful if the client is in the python system.
+        Generated by
+        <code class="fenced-code-block language-python"><span class="token builtin">repr</span><span class="token punctuation">(</span>pickle<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>exc<span class="token punctuation">)</span><span class="token punctuation">)</span></code>,
+        which is faster in encoding but slower with decoding (
+        <code class="fenced-code-block language-python"><span class="token keyword">raise</span> pickle<span class="token punctuation">.</span>loads<span class="token punctuation">(</span><span class="token builtin">eval</span><span class="token punctuation">(</span>error<span class="token punctuation">[</span><span class="token string">"pypickle"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span></code>
+        ) than base64 encoding.
+      </p>
+
+      <p>If an error occurs at any time, the <span class="__response-field">"errors"</span> field of the return order is set to the highest error code that has occurred:</p>
+      <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  <span class="token property">"orders"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
+    <span class="token punctuation">{</span>
+      &lt;orders&gt;...<span class="token punctuation">,</span>
+      <span class="token property">"errors"</span><span class="token operator">:</span> (<span class="token number">0</span>)|(code)<span class="token punctuation">,</span>
+      <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred <a href="#exception-message"><b>Exception Message</b></a>&gt;
+    <span class="token punctuation">}</span><span class="token punctuation">,</span>
+    ...
+  <span class="token punctuation">]</span><span class="token punctuation">,</span>
+  <span class="token property">"errors"</span><span class="token operator">:</span> (<span class="token number">0</span>)|(code)<span class="token punctuation">,</span>
+  <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred <a href="#exception-message"><b>Exception Message</b></a>&gt;
+<span class="token punctuation">}</span></code></pre>
+      </article>
+      <table id="errorcodes">
+        <tbody>
+        <tr><td><t_int>(0)</t_int></td><td>no errors occurred</td></tr>
+        <tr><td><t_int>(2)</t_int></td><td>errors occurred but no action performed</td></tr>
+        <tr><td><t_int>(3)</t_int></td><td>errors occurred and order canceled</td></tr>
+        <tr><td><t_int>(4)</t_int></td><td>errors occurred and session canceled</td></tr>
+        </tbody>
+      </table>
+      <p></p>
+
+      <h3 id="error-handling-after-fatal-errors-during-order-processing">Error handling after fatal errors during order processing</h3>
+      <p>For extreme exceptional cases, e.g. errors are not intercepted in a modified basic version or if a connection is interrupted exactly during the processing of an order, there is a graduated handling:</p>
+      <p>
+        First an attempt is made to send the JSON
+        <code class="fenced-code-block language-json"><span class="token punctuation">{</span><span class="token property">"errors"</span><span class="token operator">:</span> <span class="token number">-1</span><span class="token punctuation">,</span> <span class="token property">"error"</span><span class="token operator">:</span> <a href="#exception-message"><b>Exception Message</b></a><span class="token punctuation">}</span></code>
+        if this fails, an attempt is made to send a null byte, if this leads to an error, an attempt is made to terminate and remove the connection properly, if this also leads to an error,
+        <code class="fenced-code-block language-python"><o_server></o_server>.shutdown<span class="token punctuation">(</span>force<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span></code>
+        is executed finally.
+      </p>
+      <hr>
+      <p></p>
+      <div style="text-align:right; font-size:11px">
+        <p>
+          <a href="#wsqlite3">Up ↑</a>
+        </p>
+        <p>
+          Thanks to <a href="https://github.com/marktext" target="_blank">MarkText</a> for md sections
+        </p>
+      </div>
+    </div>
+  </div>
+  </body>
+</html>

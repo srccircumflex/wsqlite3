@@ -169,9 +169,9 @@ class DebugOperator(VerboseOperator):
             self.erract_unprocessed_fields()
         return err
 
-    async def proc_order__db(self, order: dict, res: dict):
+    async def proc_order__sql(self, order: dict, res: dict):
         log(self.server, self.current_connection.id, '"db":', order)
-        err = await super().proc_order__db(order, res)
+        err = await super().proc_order__sql(order, res)
         order.pop("error", None)
         if order:
             log(self.server, self.current_connection.id, "unprocessed instructions:", order)

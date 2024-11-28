@@ -1368,7 +1368,7 @@ class Server(threading.Thread):
             for conn in self.all_connections:
                 asyncio.run_coroutine_threadsafe(conn.send_broadcast(payload), conn.thread.async_loop)
 
-    async def shutdown(self, force: bool = False) -> None:
+    def shutdown(self, force: bool = False) -> None:
         """Close all connections and shut down the server.
         Do not wait for lock's if `force` is ``True``."""
 

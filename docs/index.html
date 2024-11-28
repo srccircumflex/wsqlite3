@@ -419,10 +419,9 @@
       <h2 id="project-wordings">Project Wordings</h2>
       <table>
         <tbody>
-        <tr><td><cite>Connection</cite> (without direct reference to sql)</td><td>refers to the <o_conn></o_conn> object of the <o_server></o_server></td></tr>
-        <tr><td><cite>Connection</cite> (with direct reference to sql)</td><td>refers to the <o_server></o_server>'s <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Connection" target="_blank">sqlite3.Connection</a> to the database</td></tr>
+        <tr><td><cite>Connection</cite></td><td>refers to the <o_conn></o_conn> object of the <o_server></o_server></td></tr>
         <tr><td><cite>Cursor</cite></td><td>refers to the <o_cur></o_cur> object, a derivative of <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.Cursor" target="_blank">sqlite3.Cursor</a> (interface for database operations)</td></tr>
-        <tr><td><cite>side/main</cite> (with direct reference to cursor)</td><td>the main cursor refers to the cursor managed by the <o_server></o_server>, whereas a side cursor is only managed by its own connection and does not guarantee consistent results</td></tr>
+        <tr><td><cite>side/main</cite> (with direct reference to Cursor)</td><td>the main cursor refers to the cursor managed by the <o_server></o_server>, whereas a side cursor is only managed by its own connection and does not guarantee consistent results</td></tr>
         <tr><td><cite>Order</cite></td><td>refers to incoming order JSONs that are processed on the <o_server></o_server> side and outgoing order JSONs</td></tr>
         </tbody>
       </table>
@@ -488,7 +487,7 @@ server<span class="token punctuation">.</span>start<span class="token punctuatio
       <p>
         On the other hand, in order to be able to transmit binary data to the server, the
         <span class="__input-field">"tb:params"</span> statement (which replaces the
-        <span class="__input-field">"params"</span> statement) is available for database operations.
+        <span class="__input-field">"params"</span> statement) is available for <span class="__order-section">"sql"</span> operations.
         <t_str></t_str>'s within the object passed to it must be prefixed with either
         <span class="__input-field">"t:"</span> or <span class="__input-field">"b:"</span>:
       </p>
@@ -500,14 +499,14 @@ server<span class="token punctuation">.</span>start<span class="token punctuatio
       </table>
 <article class="markdown-body"><pre><code class="fenced-code-block language-json">server &lt;&lt; <span class="token punctuation">{</span>
   <span class="token property">"sql"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
-    <span class="token property">"exec"</span><span class="token operator">:</span> <span class="token string">"INSERT INTO main VALUES (?)"</span><span class="token punctuation">,</span>
+    <span class="token property">"exec"</span><span class="token operator">:</span> <span class="token string">"INSERT INTO main VALUES (?, ?)"</span><span class="token punctuation">,</span>
     <span class="token property">"tb:params"</span><span class="token operator">:</span> <span class="token punctuation">[</span> <span class="token string">"t:Hello"</span><span class="token punctuation">,</span> <span class="token string">"b:V29ybGQ="</span> <span class="token punctuation">]</span>
   <span class="token punctuation">}</span>
 <span class="token punctuation">}</span>
 server &lt;&lt; <span class="token punctuation">{</span>
   <span class="token property">"sql"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
     <span class="token property">"exec"</span><span class="token operator">:</span> <span class="token string">"SELECT * FROM main"</span><span class="token punctuation">,</span>
-    <span class="token property">"fetchall"</span><span class="token operator">:</span> <span class="token boolean">true</span>
+    <span class="token property">"fetchone"</span><span class="token operator">:</span> <span class="token boolean">true</span>
   <span class="token punctuation">}</span>
 <span class="token punctuation">}</span>
 server &gt;&gt; <span class="token punctuation">{</span>

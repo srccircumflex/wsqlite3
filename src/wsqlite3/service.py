@@ -1330,8 +1330,6 @@ class Server(threading.Thread):
     async def open_socket(self):
         """open the socket"""
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
         self.sock.bind(self.address)
         self.sock.listen()
 

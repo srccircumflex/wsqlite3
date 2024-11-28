@@ -127,7 +127,7 @@ class Connection(threading.Thread):
     def recv_obj(self, block: bool = True, timeout: float | None = None) -> dict:
         return self.response_queue.get(block, timeout)
 
-    def communicate(self, obj: dict | object, block: bool = True, timeout: float | None = None) -> dict:
+    def communicate(self, obj: dict | object, block: bool = True, timeout: float | None = None) -> list[dict]:
         if isinstance(obj, list):
             for i in range(len(obj)):
                 order = obj[i]

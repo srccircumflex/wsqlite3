@@ -18,9 +18,6 @@ from base64 import b64encode, b64decode
 
 import wsdatautil
 
-_CHECK_DB_FOR_MULTITHREADING__ITERATIONS = 100
-_CHECK_DB_FOR_MULTITHREADING__WAIT = .01
-
 
 def _FATAL_ERROR_HANDLE(server: Server, label: str, exc: Exception, msg: str = ""):
     print("", end="", flush=True)
@@ -101,12 +98,12 @@ class Operator:
         "connection",
         "server",
         "thread",
-        "db",
+        "sql",
         "broadcast",
     )
 
     class _CancelSignal(Exception):
-        def __init__(self, db_rollback: bool): self.db_rollback = db_rollback
+        def __init__(self, sql_rollback: bool): self.sql_rollback = sql_rollback
 
     class CancelOrder(_CancelSignal):
         ...
@@ -118,24 +115,24 @@ class Operator:
         ...
 
     class ShutdownServer(_CancelSignal):
-        def __init__(self, db_rollback: bool, force: bool):
-            Operator._CancelSignal.__init__(self, db_rollback)
+        def __init__(self, sql_rollback: bool, force: bool):
+            Operator._CancelSignal.__init__(self, sql_rollback)
             self.force = force
 
-    def erract_cancel_order(self, db_rollback: bool):
-        raise self.CancelOrder(db_rollback)
+    def erract_cancel_order(self, sql_rollback: bool):
+        raise self.CancelOrder(sql_rollback)
 
-    def erract_cancel_session(self, db_rollback: bool):
-        raise self.CancelSession(db_rollback)
+    def erract_cancel_session(self, sql_rollback: bool):
+        raise self.CancelSession(sql_rollback)
 
-    def erract_destroy_connection(self, db_rollback: bool):
-        raise self.DestroyConnection(db_rollback)
+    def erract_destroy_connection(self, sql_rollback: bool):
+        raise self.DestroyConnection(sql_rollback)
 
-    def erract_shutdown_server(self, db_rollback: bool):
-        raise self.ShutdownServer(db_rollback, False)
+    def erract_shutdown_server(self, sql_rollback: bool):
+        raise self.ShutdownServer(sql_rollback, False)
 
-    def erract_force_shutdown_server(self, db_rollback: bool):
-        raise self.ShutdownServer(db_rollback, True)
+    def erract_force_shutdown_server(self, sql_rollback: bool):
+        raise self.ShutdownServer(sql_rollback, True)
 
     def __init__(self, server: Server):
         self.server = server
@@ -146,7 +143,7 @@ class Operator:
             ("connection", self.proc_order__connection),
             ("server", self.proc_order__server),
             ("thread", self.proc_order__thread),
-            ("db", self.proc_order__db),
+            ("sql", self.proc_order__sql),
             ("broadcast", self.proc_order__broadcast),
         ))
         self.error_actions = {
@@ -298,7 +295,7 @@ class Operator:
                     for threads in self.server.threads
                 }
             if shutdown := order.pop("shutdown", None):
-                await self.server.shutdown(shutdown == "force")
+                self.server.shutdown(shutdown == "force")
                 raise Connection.CloseSignal
         except Connection.CloseSignal:
             raise
@@ -333,41 +330,41 @@ class Operator:
             return 2
         return 0
 
-    async def proc_order__db(self, order: dict, res: dict):
-        db: Callable[[], Database | None]
-        def db(): return None
+    async def proc_order__sql(self, order: dict, res: dict):
+        sql: Callable[[], Database | None]
+        def sql(): return None
         try:
             if order.pop("keys", None):
                 res["keys"] = list(self.server.databases.keys())
 
             if open_ := order.pop("open", ()):
-                _db = self.server.add_database(order.pop("get", None), *open_[0], **open_[1])
-                res["open"] = _db.session_key
+                _sql = self.server.add_database(order.pop("get", None), *open_[0], **open_[1])
+                res["open"] = _sql.session_key
 
-                def db(): return _db
+                def sql(): return _sql
             else:
-                def db():
-                    nonlocal db
-                    _db = self.server.get_database(order.pop("get", None))
-                    def db(): return _db
-                    return _db
+                def sql():
+                    nonlocal sql
+                    _sql = self.server.get_database(order.pop("get", None))
+                    def sql(): return _sql
+                    return _sql
 
             side, force, sudo = order.pop("side", False), order.pop("force", False), order.pop("sudo", False)
 
             def exec_cur():
-                return db().cursor(self.current_connection, "sql", side, force, sudo)
+                return sql().cursor(self.current_connection, "sql", side, force, sudo)
 
             def fetch_cur():
-                return db().cursor(self.current_connection, "fetch", side, force, sudo)
+                return sql().cursor(self.current_connection, "fetch", side, force, sudo)
 
             def release_cur():
-                return db().cursor(self.current_connection, "release", side, force, sudo)
+                return sql().cursor(self.current_connection, "release", side, force, sudo)
 
             def close_cur():
-                return db().cursor(self.current_connection, "close", side, force, False)
+                return sql().cursor(self.current_connection, "close", side, force, False)
 
             def attr_cur():
-                return db().cursor(self.current_connection, "_attr", side, False, False)
+                return sql().cursor(self.current_connection, "_attr", side, False, False)
 
             exec_f: Callable | None = None
 
@@ -475,12 +472,12 @@ class Operator:
                     res["release"] = release_cur()
 
             if order.pop("rollback", None):
-                with db():
-                    db().connection.rollback()
+                with sql():
+                    sql().connection.rollback()
 
             if order.pop("commit", None):
-                with db():
-                    db().connection.commit()
+                with sql():
+                    sql().connection.commit()
 
             if order.pop("close", None):
                 res["close"] = close_cur()
@@ -489,8 +486,8 @@ class Operator:
             try:
                 self.exception_handle(order, res, exc)
             except self._CancelSignal as e:
-                if e.db_rollback and db():
-                    db().connection.rollback()
+                if e.sql_rollback and sql():
+                    sql().connection.rollback()
                 raise
             return 2
         return 0
@@ -562,7 +559,7 @@ class Operator:
             self.current_connection.destroy()
         except self.ShutdownServer as e:
             _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, f'<ShutdownServer(force={e.force})> raised')
-            await self.server.shutdown(e.force)
+            self.server.shutdown(e.force)
         except Exception as e:
             _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, 'unexpected error raised while processing order -> sending { "error": {...} }')
             try:
@@ -587,7 +584,7 @@ class Operator:
                             self.response_connection.thread.connections.discard(self.response_connection)
                     except Exception as e:
                         _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, f"unexpected error raised while handling above exception -> forceful server shutdown")
-                        await self.server.shutdown(force=True)
+                        self.server.shutdown(force=True)
 
 
 class Cursor(sqlite3.Cursor):
@@ -739,7 +736,7 @@ class Cursor(sqlite3.Cursor):
 
     def _t_lock_acquire(self) -> Cursor:
         if not self._t_lock.acquire(timeout=2):
-            raise FatalError(f"(t_lock) DB access for {self.handler}")
+            raise FatalError(f"(t_lock) SQL access for {self.handler}")
         return self
 
     def _t_lock_release(self):
@@ -834,8 +831,6 @@ class Database:
                 _close()
 
     def cursor(self, from_: Connection, for_: Literal["sql", "fetch", "release", "close", "_attr"], side: bool, force: bool, sudo: bool) -> _CursorSuit | bool:
-        """**"sql" and "fetch" acquires the t_lock without release**
-        """
         if side:
             if for_ == "close":
                 try:
@@ -1096,8 +1091,9 @@ class Connection(ConnectionWorker):
     def destroy(self) -> None:
         """close the connection and remove the Connection object from the parent thread"""
         self._keep_alive = False
-        self.sock.close()
         self.reader.feed_eof()
+        self.sock.close()
+        self.writer.close()
         self.thread.connections.discard(self)
         for cur in self._side_cursors.copy():
             cur.destroy(self, False)
@@ -1236,7 +1232,7 @@ class Server(threading.Thread):
         ...
 
     @overload
-    def add_database(self, session_key: Hashable | None, db_connection: sqlite3.Connection, /) -> Database:
+    def add_database(self, session_key: Hashable | None, sql_connection: sqlite3.Connection, /) -> Database:
         ...
 
     @overload
@@ -1258,23 +1254,23 @@ class Server(threading.Thread):
             before they are passed to ``sqlite3.connect``. In addition, the parameter `check_same_thread` is automatically
             set to ``False``.
         """
-        if session_key is None and (db := self.databases.get(session_key)):
-            raise ConfigurationError(f"default database set: {db}")
-        elif session_key and (db := self.databases.get(session_key)):
-            raise ConfigurationError(f"{session_key!r}: {db}")
+        if session_key is None and (sql := self.databases.get(session_key)):
+            raise ConfigurationError(f"default database set: {sql}")
+        elif session_key and (sql := self.databases.get(session_key)):
+            raise ConfigurationError(f"{session_key!r}: {sql}")
         if sqlite3_connect_args and isinstance(sqlite3_connect_args[0], sqlite3.Connection):
-            db = self.factory_Database(self, session_key, sqlite3_connect_args[0])
+            sql = self.factory_Database(self, session_key, sqlite3_connect_args[0])
         else:
-            db = self.factory_Database(self, session_key, (sqlite3_connect_args, sqlite3_connect_kwargs))
-        self.databases[db.session_key] = db
-        return db
+            sql = self.factory_Database(self, session_key, (sqlite3_connect_args, sqlite3_connect_kwargs))
+        self.databases[sql.session_key] = sql
+        return sql
 
     def close_database(self, session_key: Hashable | None, force: bool = False) -> None:
         """remove a ``Database`` from handling and close the ``sqlite3.Connection``,
         do not wait for the lock to be released if `force` is ``True``"""
-        if not (db := self.databases.pop(session_key, None)):
+        if not (sql := self.databases.pop(session_key, None)):
             raise ConfigurationError(f"{session_key!r} unset")
-        db.close(force)
+        sql.close(force)
 
     def get_database(self, session_key: Hashable | None) -> Database:
         try:
@@ -1372,11 +1368,11 @@ class Server(threading.Thread):
         """Close all connections and shut down the server.
         Do not wait for lock's if `force` is ``True``."""
 
-        for db in self.databases.copy().values():
+        for sql in self.databases.copy().values():
             try:
-                db.close(force)
+                sql.close(force)
             except Exception as e:
-                _FATAL_ERROR_HANDLE(self, "", e, f"shutdown @ close {db}")
+                _FATAL_ERROR_HANDLE(self, "", e, f"shutdown @ close {sql}")
 
         self._keep_alive = False
 

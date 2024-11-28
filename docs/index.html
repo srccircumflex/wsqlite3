@@ -339,7 +339,7 @@
               <li><a href="#struc-connection"><span class="__order-section">"connection"</span></a></li>
               <li><a href="#struc-server"><span class="__order-section">"server"</span></a></li>
               <li><a href="#struc-thread"><span class="__order-section">"thread"</span></a></li>
-              <li><a href="#struc-db"><span class="__order-section">"db"</span></a></li>
+              <li><a href="#struc-sql"><span class="__order-section">"sql"</span></a></li>
               <li><a href="#struc-broadcast"><span class="__order-section">"broadcast"</span></a></li>
               <li><a href="#struc-broadcast"><span class="__response-field">"errors"</span></a></li>
               <li><a href="#struc-broadcast"><span class="__response-field">"error"</span></a></li>
@@ -499,22 +499,22 @@ server<span class="token punctuation">.</span>start<span class="token punctuatio
         </tbody>
       </table>
 <article class="markdown-body"><pre><code class="fenced-code-block language-json">server &lt;&lt; <span class="token punctuation">{</span>
-  <span class="token property">"db"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+  <span class="token property">"sql"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
     <span class="token property">"exec"</span><span class="token operator">:</span> <span class="token string">"INSERT INTO main VALUES (?)"</span><span class="token punctuation">,</span>
     <span class="token property">"tb:params"</span><span class="token operator">:</span> <span class="token punctuation">[</span> <span class="token string">"t:Hello"</span><span class="token punctuation">,</span> <span class="token string">"b:V29ybGQ="</span> <span class="token punctuation">]</span>
   <span class="token punctuation">}</span>
 <span class="token punctuation">}</span>
 server &lt;&lt; <span class="token punctuation">{</span>
-  <span class="token property">"db"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+  <span class="token property">"sql"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
     <span class="token property">"exec"</span><span class="token operator">:</span> <span class="token string">"SELECT * FROM main"</span><span class="token punctuation">,</span>
     <span class="token property">"fetchall"</span><span class="token operator">:</span> <span class="token boolean">true</span>
   <span class="token punctuation">}</span>
 <span class="token punctuation">}</span>
 server &gt;&gt; <span class="token punctuation">{</span>
-  <span class="token property">"db"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+  <span class="token property">"sql"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
     <span class="token property">"fetch"</span><span class="token operator">:</span> <span class="token punctuation">[</span> <span class="token string">"Hello"</span><span class="token punctuation">,</span> <span class="token string">"V29ybGQ="</span> <span class="token punctuation">]</span>
   <span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">[</span><span class="token string">"db"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"fetch"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span>.b64decode() == <span class="token string">"World"</span></code></pre></article>
+<span class="token punctuation">}</span><span class="token punctuation">[</span><span class="token string">"sql"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"fetch"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">1</span><span class="token punctuation">]</span>.b64decode().decode(<span class="token string">"utf8"</span>) == <span class="token string">"World"</span></code></pre></article>
 
       <h3 id="structure">Structure</h3>
 
@@ -721,7 +721,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
           </details>
         <div class="__curly-bracket __l0">}</div>
 
-        <div class="__l0" id="struc-db"><span class="__order-section">"db"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">database access</span></div>
+        <div class="__l0" id="struc-sql"><span class="__order-section">"sql"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">database access</span></div>
           <details class="__l1">
             <summary>
               <span>
@@ -1061,7 +1061,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
         </table>
       <p></p>
       <p>
-        In addition, the <span class="__order-section">"db"</span> section evaluates whether the parameter
+        In addition, the <span class="__order-section">"sql"</span> section evaluates whether the parameter
         <t_str>("+rollback")</t_str> is appended
         (e.g. <t_str>("cancel order +rollback")</t_str>).
       </p>

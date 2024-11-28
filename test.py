@@ -292,7 +292,7 @@ class TestOrders(unittest.TestCase):
         with self.assertRaises(queue.Empty) as ar:
             client1.order().server().shutdown().__communicate__(False)
 
-    def test_db(self):
+    def test_sql(self):
         server = wsqlite3.verbose_service.DebugServer("localhost", 9092, threads=2)
         server.start(wait_iterations=True)
 
@@ -301,152 +301,152 @@ class TestOrders(unittest.TestCase):
 
         try:
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                client.order().db().exec(";").__communicate__()
+                client.order().sql().exec(";").__communicate__()
             with self.assertRaises(wsqlite3.ConfigurationError):
                 ar.exception.raise_origin()
 
             server.add_database(1, ":memory:")
 
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                client.order().db().exec(";").__communicate__()
+                client.order().sql().exec(";").__communicate__()
             with self.assertRaises(wsqlite3.ConfigurationError):
                 ar.exception.raise_origin()
 
-            client.order().db().get(2).open((":memory:",)).__communicate__()
+            client.order().sql().get(2).open((":memory:",)).__communicate__()
 
             self.assertEqual(
-                list(sorted(client.order().db().keys().__communicate__()[0]["db"]["keys"])),
+                list(sorted(client.order().sql().keys().__communicate__()[0]["sql"]["keys"])),
                 [1, 2]
             )
 
-            client.order().db().get(2).close().__communicate__()
+            client.order().sql().get(2).close().__communicate__()
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                client.order().db().get(2).close().__communicate__()
+                client.order().sql().get(2).close().__communicate__()
             with self.assertRaises(wsqlite3.ConfigurationError):
                 ar.exception.raise_origin()
 
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                client.order().db().open((":memory:",)).exec("CREATE TABLE main (x INT, y INT \\\\\\\\\\").__communicate__()
+                client.order().sql().open((":memory:",)).exec("CREATE TABLE main (x INT, y INT \\\\\\\\\\").__communicate__()
             with self.assertRaises(sqlite3.OperationalError):
                 ar.exception.raise_origin()
 
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                client.order().db().open((":memory:",)).exec("CREATE TABLE main (x INT, y INT)").__communicate__()
+                client.order().sql().open((":memory:",)).exec("CREATE TABLE main (x INT, y INT)").__communicate__()
             with self.assertRaises(wsqlite3.ConfigurationError):
                 ar.exception.raise_origin()
 
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                client.order().db().exec("CREATE TABLE main (x INT, y INT)").__communicate__()
+                client.order().sql().exec("CREATE TABLE main (x INT, y INT)").__communicate__()
             with self.assertRaises(wsqlite3.CursorLockedError):
                 ar.exception.raise_origin()
 
             client.communicate([
-                client.order().db().release(),
-                client.order().db().exec("CREATE TABLE main (x INT, y INT)").release(),
+                client.order().sql().release(),
+                client.order().sql().exec("CREATE TABLE main (x INT, y INT)").release(),
             ])
-            client.order().db().exec("INSERT INTO main VALUES (11, ?)", params=(22,)).release().__communicate__()
-            client.order().db().exec("INSERT INTO main VALUES (99, :x)", params={"x": 00}).release().__communicate__()
-            client.order().db().exec("SELECT * FROM main").release().__communicate__()
+            client.order().sql().exec("INSERT INTO main VALUES (11, ?)", params=(22,)).release().__communicate__()
+            client.order().sql().exec("INSERT INTO main VALUES (99, :x)", params={"x": 00}).release().__communicate__()
+            client.order().sql().exec("SELECT * FROM main").release().__communicate__()
 
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                resp = client.order().db().fetchone().__communicate__()
+                resp = client.order().sql().fetchone().__communicate__()
             with self.assertRaises(wsqlite3.CursorNotLockedError):
                 ar.exception.raise_origin()
 
-            resp = client.order().db().force().fetchone().release().__communicate__()
-            self.assertEqual(resp[0]["db"]["fetch"], [11, 22])
+            resp = client.order().sql().force().fetchone().release().__communicate__()
+            self.assertEqual(resp[0]["sql"]["fetch"], [11, 22])
 
             client2 = wsqlite3.baseclient.Connection("localhost", 9092)
             client2.start()
 
-            client2.order().db().exec("SELECT * FROM main").__communicate__()
+            client2.order().sql().exec("SELECT * FROM main").__communicate__()
 
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                resp = client.order().db().fetchone().__communicate__()
+                resp = client.order().sql().fetchone().__communicate__()
             with self.assertRaises(wsqlite3.CursorLockedError):
                 ar.exception.raise_origin()
 
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                resp = client.order().db().force().fetchone().__communicate__()
+                resp = client.order().sql().force().fetchone().__communicate__()
             with self.assertRaises(wsqlite3.CursorLockedError):
                 ar.exception.raise_origin()
 
-            resp = client.order().db().sudo().fetchone().__communicate__()
-            self.assertEqual(resp[0]["db"]["fetch"], [11, 22])
+            resp = client.order().sql().sudo().fetchone().__communicate__()
+            self.assertEqual(resp[0]["sql"]["fetch"], [11, 22])
 
-            resp = client.order().db().fetchone().__communicate__()
-            self.assertEqual(resp[0]["db"]["fetch"], [99, 00])
+            resp = client.order().sql().fetchone().__communicate__()
+            self.assertEqual(resp[0]["sql"]["fetch"], [99, 00])
 
-            resp = client.order().db().fetchone().release(finally_=True).__communicate__()
-            self.assertEqual(resp[0]["db"]["fetch"], None)
+            resp = client.order().sql().fetchone().release(finally_=True).__communicate__()
+            self.assertEqual(resp[0]["sql"]["fetch"], None)
 
-            resp = client2.order().db().side().many("INSERT INTO main VALUES (5, ?)", params=((1,), (2,), (3,))).release().__communicate__()
-            client2.order().db().side().exec("SELECT * FROM main").__communicate__()
-            resp = client.order().db().force().sudo().fetchall().release(finally_=True).__communicate__()
-            self.assertEqual(resp[0]["db"]["fetch"], [])
+            resp = client2.order().sql().side().many("INSERT INTO main VALUES (5, ?)", params=((1,), (2,), (3,))).release().__communicate__()
+            client2.order().sql().side().exec("SELECT * FROM main").__communicate__()
+            resp = client.order().sql().force().sudo().fetchall().release(finally_=True).__communicate__()
+            self.assertEqual(resp[0]["sql"]["fetch"], [])
 
-            resp = client2.order().db().side().fetchall().release(finally_=True).__communicate__()
-            self.assertEqual(resp[0]["db"]["fetch"], [[11, 22], [99, 00], [5, 1], [5, 2], [5, 3]])
+            resp = client2.order().sql().side().fetchall().release(finally_=True).__communicate__()
+            self.assertEqual(resp[0]["sql"]["fetch"], [[11, 22], [99, 00], [5, 1], [5, 2], [5, 3]])
 
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                resp = client.order().db().sudo().fetchall().release(finally_=True).__communicate__()
+                resp = client.order().sql().sudo().fetchall().release(finally_=True).__communicate__()
             with self.assertRaises(wsqlite3.CursorNotLockedError):
                 ar.exception.raise_origin()
 
-            client2.order().db().side().close().__communicate__()
+            client2.order().sql().side().close().__communicate__()
 
-            client2.order().db().exec("SELECT * FROM main").__communicate__()
+            client2.order().sql().exec("SELECT * FROM main").__communicate__()
 
-            resp = client2.order().db().lock().__communicate__()
+            resp = client2.order().sql().lock().__communicate__()
             log_ok(resp)
             self.assertEqual(
-                resp[0]["db"]["lock"],
+                resp[0]["sql"]["lock"],
                 client2.order().connection().id().__communicate__()[0]["connection"]["id"]
             )
-            resp = client2.order().db().arraysize().__communicate__()
-            self.assertEqual(resp[0]["db"]["arraysize"], 1)
-            resp = client2.order().db().arraysize(2).__communicate__()
-            self.assertEqual(resp[0]["db"]["arraysize"], 2)
-            resp = client2.order().db().description().__communicate__()
-            self.assertEqual(resp[0]["db"]["description"], [['x', None, None, None, None, None, None], ['y', None, None, None, None, None, None]])
-            resp = client2.order().db().lastrowid().__communicate__()
-            self.assertEqual(resp[0]["db"]["lastrowid"], 5)
-            resp = client2.order().db().rowcount().__communicate__()
-            self.assertEqual(resp[0]["db"]["rowcount"], -1)
-            resp = client2.order().db().rollback().__communicate__()
-            resp = client2.order().db().commit().__communicate__()
+            resp = client2.order().sql().arraysize().__communicate__()
+            self.assertEqual(resp[0]["sql"]["arraysize"], 1)
+            resp = client2.order().sql().arraysize(2).__communicate__()
+            self.assertEqual(resp[0]["sql"]["arraysize"], 2)
+            resp = client2.order().sql().description().__communicate__()
+            self.assertEqual(resp[0]["sql"]["description"], [['x', None, None, None, None, None, None], ['y', None, None, None, None, None, None]])
+            resp = client2.order().sql().lastrowid().__communicate__()
+            self.assertEqual(resp[0]["sql"]["lastrowid"], 5)
+            resp = client2.order().sql().rowcount().__communicate__()
+            self.assertEqual(resp[0]["sql"]["rowcount"], -1)
+            resp = client2.order().sql().rollback().__communicate__()
+            resp = client2.order().sql().commit().__communicate__()
 
-            client2.order().db().force().exec("SELECT * FROM main").__communicate__()
-            resp = client2.order().db().sudo().fetchall().release(finally_=True).__communicate__()
-            self.assertEqual(resp[0]["db"]["fetch"], [])
+            client2.order().sql().force().exec("SELECT * FROM main").__communicate__()
+            resp = client2.order().sql().sudo().fetchall().release(finally_=True).__communicate__()
+            self.assertEqual(resp[0]["sql"]["fetch"], [])
 
             client.communicate([
-                client.order().db().release(),
-                client.order().db().exec("CREATE TABLE bytes (x BLOB)").release(),
+                client.order().sql().release(),
+                client.order().sql().exec("CREATE TABLE bytes (x BLOB)").release(),
             ])
-            client.order().db().exec("INSERT INTO bytes VALUES (?)", params=(22,)).release().__communicate__()
-            client.order().db().exec("INSERT INTO bytes VALUES (:x)", params={"x": 00}).release().__communicate__()
-            client.order().db().many("INSERT INTO bytes VALUES (?)", tb_params=(('b:' + base64.b64encode(b'bytes1').decode(), ), ("t:string", ))).release().__communicate__()
+            client.order().sql().exec("INSERT INTO bytes VALUES (?)", params=(22,)).release().__communicate__()
+            client.order().sql().exec("INSERT INTO bytes VALUES (:x)", params={"x": 00}).release().__communicate__()
+            client.order().sql().many("INSERT INTO bytes VALUES (?)", tb_params=(('b:' + base64.b64encode(b'bytes1').decode(),), ("t:string",))).release().__communicate__()
             with self.assertRaises(wsqlite3.baseclient.ClientError) as ar:
-                client.order().db().exec("INSERT INTO bytes VALUES (?)", tb_params=(base64.b64encode(b'bytes2').decode(),)).release().__communicate__()
+                client.order().sql().exec("INSERT INTO bytes VALUES (?)", tb_params=(base64.b64encode(b'bytes2').decode(),)).release().__communicate__()
             with self.assertRaises(wsqlite3.OrderError):
                 ar.exception.raise_origin()
 
-            client.order().db().exec("SELECT * FROM bytes").__communicate__()
+            client.order().sql().exec("SELECT * FROM bytes").__communicate__()
             self.assertEqual(
-                client.order().db().fetchone().__communicate__()[0]["db"]["fetch"][0],
+                client.order().sql().fetchone().__communicate__()[0]["sql"]["fetch"][0],
                 22
             )
             self.assertEqual(
-                client.order().db().fetchone().__communicate__()[0]["db"]["fetch"][0],
+                client.order().sql().fetchone().__communicate__()[0]["sql"]["fetch"][0],
                 0
             )
             self.assertEqual(
-                base64.b64decode(client.order().db().fetchone().__communicate__()[0]["db"]["fetch"][0]),
+                base64.b64decode(client.order().sql().fetchone().__communicate__()[0]["sql"]["fetch"][0]),
                 b'bytes1'
             )
             self.assertEqual(
-                client.order().db().fetchone().__communicate__()[0]["db"]["fetch"][0],
+                client.order().sql().fetchone().__communicate__()[0]["sql"]["fetch"][0],
                 'string'
             )
 

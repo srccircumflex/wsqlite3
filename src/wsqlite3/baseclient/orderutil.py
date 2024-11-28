@@ -199,10 +199,10 @@ class _OSecWs(_OrderSection):
         return self._instruction("broadcast_masking", mask)
 
 
-class _OSecDb(_OrderSection):
+class _OSecSql(_OrderSection):
 
     def __init__(self, parent: _OrderSection):
-        super().__init__("db", parent)
+        super().__init__("sql", parent)
 
     def keys(self):
         return self._instruction("keys", 1)
@@ -382,8 +382,8 @@ class Order(_OrderSection):
     def ws(self):
         return self._section("ws", _OSecWs)
 
-    def db(self):
-        return self._section("db", _OSecDb)
+    def sql(self):
+        return self._section("sql", _OSecSql)
 
     def broadcast(self, serializable: object, to_self: bool = False):
         return self._section("broadcast", _OSecBroadcast, serializable, to_self)

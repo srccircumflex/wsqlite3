@@ -274,9 +274,7 @@ class Operator:
                 res["properties"] = conn.properties
             if order.pop("destroy", None):
                 conn.destroy()
-                raise Connection.CloseSignal
-        except Connection.CloseSignal:
-            raise
+                await self.server.autoclose(0)
         except Exception as exc:
             self.exception_handle(order, res, exc)
             return 2

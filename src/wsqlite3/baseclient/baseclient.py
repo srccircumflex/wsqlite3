@@ -105,7 +105,7 @@ class Connection(threading.Thread):
     def run(self):
         if not self.is_alive():
             self._connect()
-        asyncio.run(self.loop())
+        asyncio.run(self.main())
 
     def start(self):
         self._connect()

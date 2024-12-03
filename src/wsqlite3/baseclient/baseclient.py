@@ -59,7 +59,17 @@ class Connection(threading.Thread):
         payload = bytes().join(f.payload for f in frames)
         response = self.deserialize_input(payload)
         if response.get("broadcast"):
-            await self.at_broadcast(response)
+            loop = asyncio.new_event_loop()
+            threading.Thread(target=loop.run_forever, args=()).start()
+            asyncio.run_coroutine_threadsafe(self.at_broadcast(response), loop).add_done_callback(
+                lambda _: loop.call_soon_threadsafe(loop.stop, )
+            )
+        elif response.get("autoclose"):
+            loop = asyncio.new_event_loop()
+            threading.Thread(target=loop.run_forever, args=()).start()
+            asyncio.run_coroutine_threadsafe(self.at_autoclose(response), loop).add_done_callback(
+                lambda _: loop.call_soon_threadsafe(loop.stop, )
+            )
         else:
             self.response_queue.put(response)
 

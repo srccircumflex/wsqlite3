@@ -73,7 +73,14 @@ class Connection(threading.Thread):
         else:
             self.response_queue.put(response)
 
-    async def loop(self):
+    async def read_loop(self):
+        try:
+            while True:
+                await self.read_iteration()
+        except asyncio.IncompleteReadError:
+            self.response_queue.put(dict())
+
+    async def main(self):
         with self.sock:
             reader, _ = await asyncio.open_connection(sock=self.sock)
             self.async_reader = reader

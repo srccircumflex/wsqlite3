@@ -84,8 +84,7 @@ class Connection(threading.Thread):
         with self.sock:
             reader, _ = await asyncio.open_connection(sock=self.sock)
             self.async_reader = reader
-            while True:
-                await self.read_iteration()
+            await self.read_loop()
 
     def connect(self) -> bytes:
         handshake = wsdatautil.HandshakeRequest()

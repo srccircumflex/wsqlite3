@@ -72,7 +72,7 @@ python -m pip install wsqlite3 --upgrade
 <hr>
 <p>
   <a href="https://srccircumflex.github.io/wsqlite3"><b> &#9654; &nbsp; Documentation</b></a>
-</p>
+</p> 
 
 
 

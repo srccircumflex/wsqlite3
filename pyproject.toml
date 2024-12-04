@@ -32,6 +32,9 @@ dynamic = ["version"]
 [tool.setuptools.dynamic]
 version = {attr = "wsqlite3.__version__"}
 
+[project.scripts]
+wsqlite3 = "wsqlite3.__main__:run"
+
 [project.urls]
 Documentation = "https://srccircumflex.github.io/wsqlite3"
 Repository = "https://github.com/srccircumflex/wsqlite3"

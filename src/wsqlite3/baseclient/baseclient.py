@@ -132,6 +132,13 @@ class Connection(threading.Thread):
         return json.dumps(obj, default=self.json_default).encode()
 
     def send_obj(self, obj: dict | object):
+        if isinstance(obj, list):
+            for i in range(len(obj)):
+                order = obj[i]
+                if isinstance(order, orderutil._OrderSection) and not isinstance(order, orderutil.Order):
+                    obj[i] = order.__root__
+        elif isinstance(obj, orderutil._OrderSection) and not isinstance(obj, orderutil.Order):
+            obj = obj.__root__
         self.sock.send(
             wsdatautil.Frame(
                 self.serialize_output(obj),
@@ -144,23 +151,27 @@ class Connection(threading.Thread):
         return self.response_queue.get(block, timeout)
 
     def communicate(self, obj: dict | object, block: bool = True, timeout: float | None = None) -> list[dict]:
-        if isinstance(obj, list):
-            for i in range(len(obj)):
-                order = obj[i]
-                if isinstance(order, orderutil._OrderSection) and not isinstance(order, orderutil.Order):
-                    obj[i] = order.__root__
         self.send_obj(obj)
         response = self.recv_obj(block, timeout)
         orders = response.get("orders")
         c = response.get("errors")
         if c == -1:
             raise orderutil.FatalError(-1, response["error"])
-        elif c not in (0, 2):
+        elif c not in (0, 2, None):
             raise orderutil.ClientError(c, response["error"])
         return orders
 
     async def at_broadcast(self, broadcast: dict) -> None:
         print(broadcast)
 
-    def order(self, block: bool = True, timeout: int | None = None) -> orderutil.Order:
-        return orderutil.Order(self, block, timeout)
+    async def at_autoclose(self, request: dict) -> None:
+        print(request)
+
+    def order(self, flag=None, block: bool = True, timeout: int | None = None) -> orderutil.Order:
+        return orderutil.Order(self, block, timeout, flag)
+
+    def __enter__(self) -> Connection:
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.sock.close()

@@ -1,24 +1,27 @@
 
   <div style="padding:10px;display:flex;align-items:end">
     <div style="display:inline-block">
-      <a href="https://github.com/srccircumflex/wsqlite3">
+      <a href="https://srccircumflex.github.io/wsqlite3">
         <img src="https://raw.githubusercontent.com/srccircumflex/wsqlite3/main/docs/logo.png" alt="logo" style="display:inline-block">
       </a>
     </div>
     <div style="display:inline-block">
       <h1>
         <span style="color:#266ed9">W</span><span style="border-bottom:1px solid #266ed9"><span style="color:#266ed9">S</span><span>QL</span><span>ite3</span></span>
-        <code>(under development)</code>
+        <code>(v0.5 under development)</code>
       </h1>
     </div>
   </div>
 
+  <div style="padding-left: 30px;border-left: 3px solid #d92661;background: #d9262654;">
+    <p>
+      versions <b><0.5</b> are <b>dysfunctional</b>
+    </p>
+  </div>
 
 ```commandline
 python -m pip install wsqlite3 --upgrade
 ```
-
-
 
 
   <p>
@@ -66,10 +69,10 @@ python -m pip install wsqlite3 --upgrade
 
 
 
-
-
-
 <hr>
 <p>
   <a href="https://srccircumflex.github.io/wsqlite3"><b> &#9654; &nbsp; Documentation</b></a>
 </p>
+
+
+

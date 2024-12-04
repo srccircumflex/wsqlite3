@@ -7,7 +7,7 @@ addr = ("localhost", 8881)
 server = DebugServer(
     *addr,
     threads=0,
-    connections_per_thread=1
+    connections_per_thread=0
 )
 server.add_database(
     None,

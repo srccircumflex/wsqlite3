@@ -3,7 +3,7 @@ from typing import Callable, Any, Literal
 
 import asyncio
 import json
-import socket
+import socket as _socket
 import time
 import traceback
 
@@ -32,8 +32,8 @@ class VerboseOperator(Operator):
 
 class VerboseConnection(Connection):
 
-    def __init__(self, server: Server, thread: ConnectionsThread | None, sock: socket.socket, addr: tuple[str, int], ws_handshake_timeout: float | None = None):
-        super().__init__(server, thread, sock, addr, ws_handshake_timeout)
+    def __init__(self, server: Server, thread: ConnectionsThread | None, sock: _socket.socket, addr: tuple[str, int]):
+        super().__init__(server, thread, sock, addr)
         log(self.server, "%s:%d" % addr, "connection accepted:", "uuid =", self.id)
 
     async def ws_wait_handshake(self) -> wsdatautil.HandshakeRequest:
@@ -50,9 +50,9 @@ class VerboseConnection(Connection):
         log(self.server, self.id, "await input")
         return await super().read_iteration()
 
-    def destroy(self):
+    def destroy(self, force: bool = False, _skip_conn_locks: set[Connection] = ()) -> bool:
         log(self.server, self.id, "destroy")
-        super().destroy()
+        return super().destroy(force=force, _skip_conn_locks=_skip_conn_locks)
 
     async def at_connection_broken(self, exc: asyncio.IncompleteReadError) -> None:
         log(self.server, self.id, "connection broken:", str().join(traceback.format_exception(exc)))
@@ -74,27 +74,30 @@ class VerboseServer(Server):
 
     def __init__(
             self,
-            host: str,
-            port: int,
+            socket: tuple[str, int] | _socket.socket,
             threads: int = 1,
             connections_per_thread: int = 0,
             factory_Connection: Callable[..., Connection] = VerboseConnection,
             factory_ConnectionsThread: Callable[..., ConnectionsThread] = VerboseConnectionsThread,
             factory_Operator: Callable[..., Operator] = VerboseOperator,
-            factory_Database: Callable[..., Database] = Database
+            factory_Database: Callable[..., Database] = Database,
     ):
-        super().__init__(host, port, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database)
+        super().__init__(socket, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database)
 
-    async def connection_request(self, sock: socket.socket, addr: tuple[str, int]):
+    async def connection_request(self, sock: _socket.socket, addr: tuple[str, int]):
         log(self, "%s:%d" % addr, "connection request")
         return await super().connection_request(sock, addr)
+
+    async def autoclose(self, from_: Connection, trigger: Connection, reason: str):
+        log(self, trigger.id, f"autoclose: {from_=} {trigger=} {reason=}")
+        return await super().autoclose(from_, trigger, reason)
 
 
 class DebugOperator(VerboseOperator):
 
     def __init__(
             self, 
-            server: Server,
+            connection: Connection,
             erract_unprocessed_fields: Literal[
                 "cancel order",
                 "cancel session",
@@ -105,7 +108,7 @@ class DebugOperator(VerboseOperator):
                 "... +rollback"
             ] | str = "shutdown server"
     ):
-        super().__init__(server)
+        super().__init__(connection)
 
         rollback = "+rollback" in erract_unprocessed_fields
         erract_unprocessed_fields = self.error_actions[erract_unprocessed_fields]
@@ -187,26 +190,33 @@ class DebugOperator(VerboseOperator):
             self.erract_unprocessed_fields()
         return err
 
+    async def proc_order__autoclose(self, order: dict, res: dict):
+        log(self.server, self.current_connection.id, '"autoclose":', order)
+        err = await super().proc_order__autoclose(order, res)
+        order.pop("error", None)
+        if order:
+            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self.erract_unprocessed_fields()
+        return err
+
 
 class DebugServer(VerboseServer):
 
     def __init__(
             self,
-            host: str,
-            port: int,
+            socket: tuple[str, int] | _socket.socket,
             threads: int = 1,
             connections_per_thread: int = 0,
             factory_Connection: Callable[..., Connection] = VerboseConnection,
             factory_ConnectionsThread: Callable[..., ConnectionsThread] = VerboseConnectionsThread,
             factory_Operator: Callable[..., Operator] = DebugOperator,
-            factory_Database: Callable[..., Database] = Database
+            factory_Database: Callable[..., Database] = Database,
     ):
-        super().__init__(host, port, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database)
+        if not isinstance(socket, _socket.socket):
+            address = socket
+            socket = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+            socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+            socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEPORT, 1)
+            socket.bind(address)
+        super().__init__(socket, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database)
 
-    async def open_socket(self):
-        """open the socket"""
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
-        self.sock.bind(self.address)
-        self.sock.listen()

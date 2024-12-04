@@ -333,6 +333,7 @@
           <li>
             <a href="#structure">Structure</a>
             <ul>
+              <li><a href="#struc-flag"><span class="__input-field">"flag"</span></a></li>
               <li><a href="#struc-ping"><span class="__order-section">"ping"</span></a></li>
               <li><a href="#struc-_exec"><span class="__order-section">"_exec"</span></a></li>
               <li><a href="#struc-_getattr"><span class="__order-section">"_getattr"</span></a></li>
@@ -341,12 +342,14 @@
               <li><a href="#struc-thread"><span class="__order-section">"thread"</span></a></li>
               <li><a href="#struc-sql"><span class="__order-section">"sql"</span></a></li>
               <li><a href="#struc-broadcast"><span class="__order-section">"broadcast"</span></a></li>
+              <li><a href="#struc-autoclose"><span class="__order-section">"autoclose"</span></a></li>
               <li><a href="#struc-broadcast"><span class="__response-field">"errors"</span></a></li>
               <li><a href="#struc-broadcast"><span class="__response-field">"error"</span></a></li>
             </ul>
           </li>
          </ul>
       </li>
+      <li><a href="#autoclose">autoclose</a></li>
       <li>
         <a href="#error-handling">Error Handling</a>
         <ul>
@@ -379,9 +382,14 @@
         <div style="display:inline-block">
           <h1 id="wsqlite3">
             <span style="color:#266ed9">W</span><span style="border-bottom:1px solid #266ed9"><span style="color:#266ed9">S</span><span>QL</span><span>ite3</span></span>
-            <code>(under development)</code>
+            <code>(v0.5 under development)</code>
           </h1>
         </div>
+      </div>
+      <div style="padding-left: 30px;border-left: 3px solid #d92661;background: #d9262654;">
+        <p>
+          versions <b><0.5</b> are <b>dysfunctional</b>
+        </p>
       </div>
       <p>
         <b>WSQLite3</b> (<cite>WebSocket SQLite3</cite>) is a simple and lightweight solution to manage
@@ -415,6 +423,23 @@
       </div>
 
       <hr>
+
+      <b>install:</b>
+      <article class="markdown-body" style="padding:0">
+        <pre><code class="fenced-code-block language-commandline">python -m pip install wsqlite3 --upgrade</code></pre>
+      </article>
+      <p></p>
+      <p>
+        The service can be started and managed via the <b>command</b> line. For more information, run:
+      </p>
+      <article class="markdown-body" style="padding:0">
+        <pre><code class="fenced-code-block language-commandline">wsqlite3 help</code></pre>
+      </article>
+      <div style="padding-left: 30px;border-left: 3px solid #d9c526;font-style: italic;">
+        <p>
+          since 0.5
+        </p>
+      </div>
 
       <h2 id="project-wordings">Project Wordings</h2>
       <table>
@@ -458,18 +483,20 @@ server<span class="token punctuation">.</span>start<span class="token punctuatio
       <p>In the basic version, the entire order JSON is otherwise NOT checked for plausibility, unknown (or incorrectly written or set in the wrong place) sections or instructions are simply ignored <cite>(however, values in the methods are obtained via dict.pop)</cite>.</p>
       <p>The return value is usually:</p>
 
-      <article class="markdown-body">
+      <article class="markdown-body" id="response-order">
 <pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
   <span class="token property">"orders"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
     <span class="token punctuation">{</span>
-      &lt;orders&gt;...<span class="token punctuation">,</span>
-      <span class="token property">"errors"</span><span class="token operator">:</span> (<span class="token number">0</span>)|(code)<span class="token punctuation">,</span>
-      <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred&gt;
+      &lt;<a href="#orders"><b>Orders</b></a>&gt;...<span class="token punctuation">,</span>
+      <span class="token property">"errors"</span><span class="token operator">:</span> <t_int>(<span class="token number">0</span>)</t_int>|<t_int>(code)</t_int><span class="token punctuation">,</span>
+      <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred <a href="#exception-message"><b>Exception Message</b></a>&gt;<span class="token punctuation">,</span>
+      <span class="token property">"flag"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;<span class="__input-field">"flag"</span>&gt;
     <span class="token punctuation">}</span><span class="token punctuation">,</span>
     ...
   <span class="token punctuation">]</span><span class="token punctuation">,</span>
-  <span class="token property">"errors"</span><span class="token operator">:</span> (<span class="token number">0</span>)|(code)<span class="token punctuation">,</span>
-  <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred&gt;
+  <span class="token property">"errors"</span><span class="token operator">:</span> <t_int>(<span class="token number">0</span>)</t_int>|<t_int>(code)</t_int><span class="token punctuation">,</span>
+  <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred <a href="#exception-message"><b>Exception Message</b></a>&gt;<span class="token punctuation">,</span>
+  <span class="token property">"flags"</span><span class="token operator">:</span> <t_list><span class="token null keyword">null</span> <span class="token punctuation">|</span> <span class="token punctuation">&lt;</span><span class="__input-field">"flag"</span><span class="token punctuation">&gt;</span>, ...</t_list>
 <span class="token punctuation">}</span></code></pre>
       </article>
 
@@ -522,6 +549,26 @@ server &gt;&gt; <span class="token punctuation">{</span>
       <article>
 
         <div class="__curly-bracket">{</div>
+
+        <div class="__l0" id="struc-flag"><span class="__input-field">"flag"</span>: –&gt; <span class="__response-field">"flag"</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">tagging</span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <t_ser></t_ser>
+              </span>
+            </summary>
+            <div style="padding-left: 30px;border-left: 3px solid #d9c526;font-style: italic;">
+              <p>
+                since 0.5
+              </p>
+            </div>
+            <t_ser></t_ser>
+            <p></p>
+            <p>
+              Assign a flag to the order to identify it in the <a href="#response-order">response</a>.
+            </p>
+          </details>
+
         <div class="__l0" id="struc-ping"><span class="__order-section">"ping"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">ping the <o_server></o_server></span></div>
           <details class="__l1">
             <summary>
@@ -586,7 +633,10 @@ server &gt;&gt; <span class="token punctuation">{</span>
                 [ <span class="__input-field">"set"</span>: <t_str>("session"|"response")</t_str> | <t_truthy></t_truthy> ],
                 <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(uuid)</t_str>,
                 <span class="__input-field">"send"</span>: <t_ser></t_ser>,
-                <span class="__input-field">"description"</span>: <t_dict>"set": <t_dict></t_dict> "update": <t_dict></t_dict> "pop": <t_any>(key)</t_any>}</t_dict> | <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_dict></t_dict> <span class="__response-field">"description.pop"</span>: <t_any></t_any>,
+                <span class="__input-field">"description"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_dict>description record, ...</t_dict>,
+                <span class="__input-field">"description.pop"</span>: <t_any>(key)</t_any> –&gt; <span class="__response-field">"description.pop"</span>: <t_any>(value)</t_any>,
+                <span class="__input-field">"description.set"</span>: <t_dict>description record, ...</t_dict>,
+                <span class="__input-field">"description.update"</span>: <t_dict>description record, ...</t_dict>,
                 <span class="__input-field">"properties"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"properties"</span>: <t_dict>properties</t_dict>,
                 <span class="__input-field">"destroy"</span>: <t_truthy></t_truthy>,
                 <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
@@ -615,7 +665,10 @@ server &gt;&gt; <span class="token punctuation">{</span>
             <p></p><p>Query the id of the current connection.</p>
             <span class="__input-field">"send"</span>: <t_ser></t_ser>
             <p></p><p>Send to the client of the current connection.</p>
-            <span class="__input-field">"description"</span>: <t_dict>"set": <t_dict></t_dict> "update": <t_dict></t_dict> "pop": <t_any>(key)</t_any>}</t_dict> | <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_dict></t_dict> <span class="__response-field">"description.pop"</span>: <t_any></t_any>
+            <span class="__input-field">"description"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_dict>description record, ...</t_dict>,
+            <span class="__input-field">"description.pop"</span>: <t_any>(key)</t_any> –&gt; <span class="__response-field">"description.pop"</span>: <t_any>(value)</t_any>,
+            <span class="__input-field">"description.set"</span>: <t_dict>description record, ...</t_dict>,
+            <span class="__input-field">"description.update"</span>: <t_dict>description record, ...</t_dict>,
             <p></p><p>Query the description or edit it. description is a dict of the <o_conn></o_conn> object that can be freely defined by the user and can be used for identification, for example.</p>
             <span class="__input-field">"properties"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"properties"</span>: <t_dict>properties</t_dict>
             <p></p>
@@ -640,7 +693,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
               <span>
                 <span class="__input-field">"connections"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"connections"</span>: <t_dict>connection.id: <t_dict>connection.properties</t_dict>, ...</t_dict>,
                 <span class="__input-field">"threads"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"threads"</span>: <t_dict>thread.id: <t_dict>thread.properties</t_dict>, ...</t_dict>,
-                <span class="__input-field">"shutdown"</span>: <t_truthy></t_truthy> | <t_str>("force")</t_str>,
+                <span class="__input-field">"shutdown"</span>: <t_truthy></t_truthy> | <t_str>("force")</t_str> | <t_str>("commit")</t_str> | <t_str>("force,commit")</t_str>,
                 <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
               </span>
             </summary>
@@ -660,8 +713,12 @@ server &gt;&gt; <span class="token punctuation">{</span>
   ...
 <span class="token punctuation">}</span></code></pre>
             </article>
-            <span class="__input-field">"shutdown"</span>: <t_truthy></t_truthy> | <t_str>("force")</t_str>
-              <p></p><p>Shutdown the <o_server></o_server>. If <t_str>("force")</t_str> is passed, the system does not wait for the session lock of a connection to be released.</p>
+            <span class="__input-field">"shutdown"</span>: <t_truthy></t_truthy> | <t_str>("force")</t_str> | <t_str>("commit")</t_str> | <t_str>("force,commit")</t_str>
+            <p></p>
+            <p>
+              Shutdown the <o_server></o_server>. If <t_str>("force")</t_str> is passed, the system does not wait for the session lock of a connection or database to be released.
+              If <t_str>("commit")</t_str> is passed, all databases are committed before closing.
+            </p>
           </details>
         <div class="__curly-bracket __l0">}</div>
 
@@ -994,7 +1051,86 @@ server &gt;&gt; <span class="token punctuation">{</span>
           </details>
         <div class="__curly-bracket __l0">}</div>
 
-        <div class="__l0" id="struc-errors"><a href="#error-handling"><span class="__response-field">"errors"</span>:</a></div>
+        <div class="__l0" id="struc-autoclose"><span class="__order-section">"autoclose"</span>: <span class="__curly-bracket">{</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="__order-section-description">autoclose configuration</span></div>
+          <details class="__l1">
+            <summary>
+              <span>
+                <span class="__input-field">"cancel"</span>: <t_bool>(true|<b>explicit</b> false)</t_bool> | <t_none></t_none>,
+                <span class="__input-field">"value"</span>: <t_str>("block")</t_str> | <t_str>("request")</t_str> | <t_int>(0)</t_int> | <t_str>("skip!")</t_str>,
+                <span class="__input-field">"config"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"config"</span>: <t_dict>autoclose config</t_dict>,
+                <span class="__input-field">"config.block"</span>: <t_bool></t_bool>,
+                <span class="__input-field">"config.request"</span>: <t_bool></t_bool>,
+                <span class="__input-field">"config.wait_response"</span>: <t_float>(seconds)</t_float>,
+                <span class="__input-field">"config.wait_close"</span>: <t_float>(seconds)</t_float>,
+                <span class="__input-field">"config.force_shutdown"</span>: <t_bool></t_bool>,
+                <span class="__input-field">"config.sql_commit"</span>: <t_bool></t_bool>,
+                <span class="__input-field">"trigger"</span>: <t_truthy></t_truthy>,
+                <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
+              </span>
+            </summary>
+            <div style="padding-left: 30px;border-left: 3px solid #d9c526;font-style: italic;">
+              <p>
+                since 0.5
+              </p>
+            </div>
+            <span class="__input-field">"cancel"</span>: <t_bool>(true|<b>explicit</b> false)</t_bool> | <t_none></t_none>
+            <p></p>
+            <p>
+              Response to a request (see <a href="#autoclose">autoclose</a>).
+            </p>
+            <table>
+              <tbody>
+              <tr><td><t_bool>(true)</t_bool></td><td>cancel the automatic closing</td></tr>
+              <tr><td><t_bool>(false)</t_bool></td><td>execute the automatic closing <b>explicitly</b></td></tr>
+              </tbody>
+            </table>
+            <p></p>
+            <span class="__input-field">"value"</span>: <t_str>("block")</t_str> | <t_str>("request")</t_str> | <t_int>(0)</t_int> | <t_str>("skip!")</t_str>,
+            <p></p>
+            <p>
+              Set the value of the current connection (see <a href="#autoclose">autoclose</a>).
+            </p>
+            <table>
+              <tbody>
+              <tr><td><t_str>("block")</t_str></td><td>the connection blocks the automatic closing <b>(default)</b></td></tr>
+              <tr><td><t_str>("request")</t_str></td><td>if no connection is blocking, this connection triggers the request whether to close</td></tr>
+              <tr><td><t_int>(0)</t_int></td><td>neutral</td></tr>
+              <tr><td><t_str>("skip!")</t_str></td><td>special value: skips the complete feature if the triggering connection has the value</td></tr>
+              </tbody>
+            </table>
+            <p></p>
+            <span class="__input-field">"config"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"config"</span>: <t_dict>autoclose config</t_dict>,
+            <span class="__input-field">"config.block"</span>: <t_bool></t_bool>,
+            <span class="__input-field">"config.request"</span>: <t_bool></t_bool>,
+            <span class="__input-field">"config.wait_response"</span>: <t_float>(seconds)</t_float>,
+            <span class="__input-field">"config.wait_close"</span>: <t_float>(seconds)</t_float>,
+            <span class="__input-field">"config.force_shutdown"</span>: <t_bool></t_bool>,
+            <span class="__input-field">"config.sql_commit"</span>: <t_bool></t_bool>,
+            <p></p>
+            <p>
+              Query or edit the autoclose configuration (see <a href="#autoclose">autoclose</a>).
+            </p>
+            <table>
+              <tbody>
+              <tr><td><span class="__input-field">"config"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"config"</span>: <t_dict>autoclose config</t_dict></td><td>Query the current configuration</td></tr>
+              <tr><td><span class="__input-field">"config.block"</span>: <t_bool></t_bool></td><td>Block the automatic closing if a connection contains the value <t_str>("block")</t_str>. <t_bool>(false)</t_bool> disables the feature and the automatic closing is never executed. Default is <t_bool>(true)</t_bool>.</td></tr>
+              <tr><td><span class="__input-field">"config.request"</span>: <t_bool></t_bool></td><td>Request from all clients (except the causing client) whether the automatic closing should be executed if no connection blocks and if a connection contains the value <t_str>("request")</t_str>. <t_bool>(false)</t_bool> disables the feature. Default is <t_bool>(true)</t_bool>.</td></tr>
+              <tr><td><span class="__input-field">"config.wait_response"</span>: <t_float>(seconds)</t_float></td><td>Wait for the reactions of the requests. The server will remain open for this time in any case. The previous conditions are then checked again; if the request condition is met again, the execution of the automatic closing depends on the reactions of the requested connections (<span class="__input-field">"cancel"</span>). Default is <t_float>(8.0)</t_float>.</td></tr>
+              <tr><td><span class="__input-field">"config.wait_close"</span>: <t_float>(seconds)</t_float></td><td>Wait after neither the condition for prevention nor request has occurred. Then check the conditions again. The server remains open for this time in any case. (Subsequently, the feature of requests could be triggered (<span class="__input-field">"config.request_at"</span>)). Default is <t_float>(8.0)</t_float>.</td></tr>
+              <tr><td><span class="__input-field">"config.force_shutdown"</span>: <t_bool></t_bool></td><td>Is passed to <a href="#struc-server"><span class="__order-section">"server"</span>: <span class="__input-field">"shutdown"</span></a> during the automatic closing. Default is <t_bool>(false)</t_bool>.</td></tr>
+              <tr><td><span class="__input-field">"config.sql_commit"</span>: <t_bool></t_bool></td><td>Is passed to <a href="#struc-server"><span class="__order-section">"server"</span>: <span class="__input-field">"shutdown"</span></a> during the automatic closing. Default is <t_bool>(false)</t_bool>.</td></tr>
+              </tbody>
+            </table>
+            <p></p>
+            <span class="__input-field">"trigger"</span>: <t_truthy></t_truthy>,
+            <p></p>
+            <p>
+              Trigger an autoclose check (see <a href="#autoclose">autoclose</a>).
+            </p>
+          </details>
+        <div class="__curly-bracket __l0">}</div>
+
+        <div class="__l0" id="struc-errors"><a href="#error-handling"><span class="__response-field">"errors"</span></a>:</div>
           <details class="__l1">
             <summary>
               <span>
@@ -1009,9 +1145,8 @@ server &gt;&gt; <span class="token punctuation">{</span>
               for each order.
             </p>
           </details>
-        <div class="__curly-bracket __l0">}</div>
 
-        <div class="__l0" id="struc-error"><a href="#error-handling"><span class="__response-field">"error"</span>:</a></div>
+        <div class="__l0" id="struc-error"><a href="#error-handling"><span class="__response-field">"error"</span></a>:</div>
           <details class="__l1">
             <summary>
               <span>
@@ -1024,11 +1159,46 @@ server &gt;&gt; <span class="token punctuation">{</span>
               This field is set to the last <a href="#exception-message"><b>Exception Message</b></a> that occurred within this order.
             </p>
           </details>
-        <div class="__curly-bracket __l0">}</div>
 
       <div class="__curly-bracket">}</div>
 
       </article>
+
+      <h2 id="autoclose">autoclose</h2>
+      <div style="padding-left: 30px;border-left: 3px solid #d9c526;font-style: italic;">
+        <p>
+          since 0.5
+        </p>
+      </div>
+      <p>
+        <b>The service closes automatically by default.</b>
+        The conditions for this are checked each time a client disconnects.
+        As long as a connection exists and has the
+        <a href="#struc-autoclose"><span class="__order-section">"autoclose"</span></a> <span class="__input-field">"value"</span> <t_str>("block")</t_str>,
+        automatic closing is prevented <b>(default)</b>.
+        The
+        <a href="#struc-autoclose"><span class="__order-section">"autoclose"</span></a> <span class="__input-field">"value"</span> <t_str>("request")</t_str>
+        can be assigned to a connection in a graduated manner, which activates - if no connection is blocking -
+        the request whether closing should be performed.
+        For this the JSON below is sent to all clients (except the causing one). As a reaction to this, the order
+        <a href="#struc-autoclose"><span class="__order-section">"autoclose"</span></a> <span class="__input-field">"cancel"</span>
+        is available.
+      </p>
+      <article class="markdown-body">
+<pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
+  <span class="token property">"autoclose"</span><span class="token operator">:</span> <span class="token punctuation">{</span>
+    <span class="token property">"trigger"</span><span class="token operator">:</span> &lt;connection.id&gt;<span class="token punctuation">,</span>
+    <span class="token property">"reason"</span><span class="token operator">:</span>
+      <t_str>("handshake timeout")</t_str>|
+      <t_str>("loop canceled")</t_str>|
+      <t_str>("erract")</t_str>|
+      <t_str>("fatal error")</t_str>|
+      <t_str>("trigger ordered")</t_str>|
+      <t_str>("destroy ordered")</t_str><span class="token punctuation">,</span>
+    <span class="token property">"connection_total"</span><span class="token operator">:</span> &lt;current connection total&gt;
+  <span class="token punctuation">}</span>
+<span class="token punctuation">}</span></code></pre>
+        </article>
 
       <h2 id="error-handling">Error Handling</h2>
       <h3 id="own-exception-types">Own Exception Types</h3>
@@ -1094,14 +1264,16 @@ server &gt;&gt; <span class="token punctuation">{</span>
 <pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
   <span class="token property">"orders"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
     <span class="token punctuation">{</span>
-      &lt;orders&gt;...<span class="token punctuation">,</span>
-      <span class="token property">"errors"</span><span class="token operator">:</span> (<span class="token number">0</span>)|(code)<span class="token punctuation">,</span>
-      <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred <a href="#exception-message"><b>Exception Message</b></a>&gt;
+      &lt;<a href="#orders"><b>Orders</b></a>&gt;...<span class="token punctuation">,</span>
+      <span class="token property">"errors"</span><span class="token operator">:</span> <t_int>(<span class="token number">0</span>)</t_int>|<t_int>(code)</t_int><span class="token punctuation">,</span>
+      <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred <a href="#exception-message"><b>Exception Message</b></a>&gt;<span class="token punctuation">,</span>
+      <span class="token property">"flag"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;<span class="__input-field">"flag"</span>&gt;
     <span class="token punctuation">}</span><span class="token punctuation">,</span>
     ...
   <span class="token punctuation">]</span><span class="token punctuation">,</span>
-  <span class="token property">"errors"</span><span class="token operator">:</span> (<span class="token number">0</span>)|(code)<span class="token punctuation">,</span>
-  <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred <a href="#exception-message"><b>Exception Message</b></a>&gt;
+  <span class="token property">"errors"</span><span class="token operator">:</span> <t_int>(<span class="token number">0</span>)</t_int>|<t_int>(code)</t_int><span class="token punctuation">,</span>
+  <span class="token property">"error"</span><span class="token operator">:</span> <span class="token null keyword">null</span> | &lt;last occurred <a href="#exception-message"><b>Exception Message</b></a>&gt;<span class="token punctuation">,</span>
+  <span class="token property">"flags"</span><span class="token operator">:</span> <t_list><span class="token null keyword">null</span> <span class="token punctuation">|</span> <span class="token punctuation">&lt;</span><span class="__input-field">"flag"</span><span class="token punctuation">&gt;</span>, ...</t_list>
 <span class="token punctuation">}</span></code></pre>
       </article>
       <table id="errorcodes">

@@ -3,10 +3,6 @@ from __future__ import annotations
 import pickle
 from typing import Any, Literal, Sequence, Mapping, Type, TypeVar, Hashable, overload
 
-import _sqlite3
-
-from ..service import Operator
-
 try:
     from .baseclient import Connection
 except ImportError:
@@ -27,7 +23,7 @@ class _OrderSection:
     def __init__(self, key: str, parent: _OrderSection):
         self.__data__ = dict()
         self._init(key, parent)
-        self.__root__ = (parent.__root__ if parent else self)
+        self.__root__ = (parent.__root__ if parent is not None else self)
 
     def _instruction(self, key: str, val: Any):
         self[key] = val
@@ -69,6 +65,9 @@ class _OrderSection:
 
     def __communicate__(self, block: bool = True, timeout: int | None = None) -> list[dict]:
         ...
+
+    def __repr__(self):
+        return repr(self.__data__)
 
 
 class _OSecPing(_OrderSection):
@@ -119,23 +118,17 @@ class _OSecConnection(_OrderSection):
     def send(self, serializable: object):
         return self._instruction("send", serializable)
 
-    def description_get(self):
+    def description(self):
         return self._instruction("description", 1)
 
+    def description_pop(self, key: Any):
+        return self._instruction("description.pop", key)
+
     def description_set(self, description: dict):
-        instruction = self._setdefault("description", dict())
-        instruction["set"] = description
-        return self._instruction("description", instruction)
+        return self._instruction("description.set", description)
 
     def description_update(self, description: dict):
-        instruction = self._setdefault("description", dict())
-        instruction["update"] = description
-        return self._instruction("description", instruction)
-
-    def description_pop(self, key: Any):
-        instruction = self._setdefault("description", dict())
-        instruction["pop"] = key
-        return self._instruction("description", instruction)
+        return self._instruction("description.update", description)
 
     def properties(self):
         return self._instruction("properties", 1)
@@ -155,8 +148,17 @@ class _OSecServer(_OrderSection):
     def threads(self):
         return self._instruction("threads", 1)
 
-    def shutdown(self, force: bool = False):
-        return self._instruction("shutdown", ("force" if force else 1))
+    def shutdown(self, force: bool = False, commit: bool = False):
+        if force:
+            if commit:
+                val = "force,commit"
+            else:
+                val = "force"
+        elif commit:
+            val = "commit"
+        else:
+            val = 1
+        return self._instruction("shutdown", val)
 
 
 class _OSecThread(_OrderSection):
@@ -305,6 +307,42 @@ class _OSecBroadcast(_OrderSection):
         self._instruction("message", serializable)._instruction("self", to_self)
 
 
+class _OSecAutoclose(_OrderSection):
+
+    def __init__(self, parent: _OrderSection):
+        super().__init__("autoclose", parent)
+
+    def cancel(self):
+        return self._instruction("cancel", True)
+
+    def value(self, val: Literal["block", "request"]):
+        return self._instruction("value", val)
+
+    def config(self):
+        return self._instruction("config", 1)
+
+    def config_block(self, enable: bool):
+        return self._instruction("config.block", enable)
+
+    def config_request(self, enable: bool):
+        return self._instruction("config.request", enable)
+
+    def config_wait_response(self, val: float):
+        return self._instruction("config.wait_response", val)
+
+    def config_wait_close(self, val: float):
+        return self._instruction("config.wait_close", val)
+
+    def config_force_shutdown(self, val: bool = True):
+        return self._instruction("config.force_shutdown", val)
+
+    def config_sql_commit(self, val: bool = True):
+        return self._instruction("config.sql_commit", val)
+
+    def trigger(self):
+        return self._instruction("trigger", 1)
+    
+
 class _Error(Exception):
     type: str | None
     args: tuple | None
@@ -346,11 +384,12 @@ class Order(_OrderSection):
 
     def _init(self, key: str, parent: _OrderSection): pass
 
-    def __init__(self, client: Connection, block: bool = True, timeout: int | None = None):
+    def __init__(self, client: Connection, block: bool = True, timeout: int | None = None, flag=None):
         _OrderSection.__init__(self, None, None)
         self.client = client
         self._block = block
         self._timeout = timeout
+        self["flag"] = flag
 
     def ping(self):
         return self._section("ping", _OSecPing)
@@ -387,6 +426,9 @@ class Order(_OrderSection):
 
     def broadcast(self, serializable: object, to_self: bool = False):
         return self._section("broadcast", _OSecBroadcast, serializable, to_self)
+
+    def autoclose(self):
+        return self._section("autoclose", _OSecAutoclose)
 
     def error_action(self, _):
         raise ValueError('"error" handling not supported in order root')

@@ -1,22 +1,35 @@
 from __future__ import annotations
-from typing import Callable, Coroutine, Any, Literal, overload, Type
 
 import asyncio
+import concurrent.futures
 import json
 import pickle
-import socket
+import socket as _socket
 import sqlite3
 import threading
-from time import sleep, asctime, time, time_ns
-from warnings import filterwarnings
+from base64 import b64encode, b64decode
 from collections import OrderedDict
 from collections.abc import Sequence, Mapping, Iterable, Hashable
+from dataclasses import dataclass
 from os import PathLike
+from time import sleep, asctime, time, time_ns
 from traceback import format_exception
+from typing import Callable, Coroutine, Any, Literal, overload, Type
 from uuid import uuid4
-from base64 import b64encode, b64decode
+from warnings import filterwarnings
 
 import wsdatautil
+
+filterwarnings(
+    'ignore',
+    message=r'^coroutine .* was never awaited$',
+    category=RuntimeWarning
+)
+
+filterwarnings(
+    'ignore',
+    message=r'Task was destroyed but it is pending!.*',
+)
 
 
 def _FATAL_ERROR_HANDLE(server: Server, label: str, exc: Exception, msg: str = ""):
@@ -86,21 +99,15 @@ class FatalError(WSQLite3Error):
 
 class Operator:
     server: Server
+    connection: Connection
     current_connection: Connection
     session_connection: Connection
     response_connection: Connection
     order_grid: OrderedDict[str, Callable[..., Coroutine]]
     error_actions: dict[str | None, Callable[[bool], None]]
-    section_order = (
-        "ping",
-        "_exec",
-        "_getattr",
-        "connection",
-        "server",
-        "thread",
-        "sql",
-        "broadcast",
-    )
+
+    class _NoResponse(Exception):
+        ...
 
     class _CancelSignal(Exception):
         def __init__(self, sql_rollback: bool): self.sql_rollback = sql_rollback
@@ -134,8 +141,9 @@ class Operator:
     def erract_force_shutdown_server(self, sql_rollback: bool):
         raise self.ShutdownServer(sql_rollback, True)
 
-    def __init__(self, server: Server):
-        self.server = server
+    def __init__(self, connection: Connection):
+        self.connection = connection
+        self.server = connection.server
         self.order_grid = OrderedDict((
             ("ping", self.proc_order__ping),
             ("_exec", self.proc_order___exec),
@@ -145,6 +153,7 @@ class Operator:
             ("thread", self.proc_order__thread),
             ("sql", self.proc_order__sql),
             ("broadcast", self.proc_order__broadcast),
+            ("autoclose", self.proc_order__autoclose),
         ))
         self.error_actions = {
             "cancel order": self.erract_cancel_order,
@@ -285,16 +294,15 @@ class Operator:
             if order.pop("id", None):
                 res["id"] = conn.id
             if send := order.pop("send", None):
-                await conn.send_broadcast(self.serialize_output(send))
+                conn._coro_run(conn.send_broadcast(self.serialize_output(send)))
             if desc := order.pop("description", None):
-                if isinstance(desc, dict):
-                    if pop := desc.pop("pop", ""):
-                        res["description.pop"] = conn.description_pop(pop)
-                    if _set := desc.pop("set", {}):
-                        conn.description_set(_set)
-                    if update := desc.pop("update", {}):
-                        conn.description_update(update)
                 res["description"] = conn.description
+            if desc_pop := order.pop("description.pop", ""):
+                res["description.pop"] = conn.description_pop(desc_pop)
+            if desc_set := order.pop("description.set", {}):
+                conn.description_set(desc_set)
+            if desc_update := order.pop("description.update", {}):
+                conn.description_update(desc_update)
             if order.pop("properties", None):
                 res["properties"] = conn.properties
             if order.pop("destroy", None):
@@ -324,9 +332,22 @@ class Operator:
                     for threads in self.server.threads
                 }
             if shutdown := order.pop("shutdown", None):
-                self.server.shutdown(shutdown == "force")
-                raise Connection.CloseSignal
-        except Connection.CloseSignal:
+                if isinstance(shutdown, str):
+                    shutdown = shutdown.split(",")
+                    params = ["force", "commit"]
+                    for i in range(len(params)):
+                        try:
+                            shutdown.remove(params[i])
+                            params[i] = True
+                        except ValueError:
+                            params[i] = False
+                    if shutdown:
+                        raise OrderError(f"invalid shutdown params: {shutdown}")
+                else:
+                    params = [False, False]
+                self.server.shutdown(*params, _skip_conn_locks={self.connection, self.current_connection, self.session_connection, self.response_connection})
+                raise self._NoResponse
+        except self._NoResponse:
             raise
         except Exception as exc:
             self.exception_handle(order, res, exc)
@@ -361,7 +382,10 @@ class Operator:
 
     async def proc_order__sql(self, order: dict, res: dict):
         sql: Callable[[], Database | None]
-        def sql(): return None
+
+        def sql():
+            return None
+
         try:
             if order.pop("keys", None):
                 res["keys"] = list(self.server.databases.keys())
@@ -370,7 +394,8 @@ class Operator:
                 _sql = self.server.add_database(order.pop("get", None), *open_[0], **open_[1])
                 res["open"] = _sql.session_key
 
-                def sql(): return _sql
+                def sql():
+                    return _sql
             else:
                 def sql():
                     nonlocal sql
@@ -610,8 +635,7 @@ class Operator:
             except self.CancelSession:
                 err = 4
                 res_order["errors"] = err
-
-            await self.response_connection.send_response(
+            self.response_connection._coro_run(self.response_connection.send_response(
                 self.serialize_output(
                     {
                         "orders": orders_out,
@@ -620,38 +644,41 @@ class Operator:
                         "error": res_order.get("error")
                     }
                 )
-            )
-
+            ))
+        except self._NoResponse:
+            pass
         except Connection.CloseSignal:
             raise
         except self.DestroyConnection as e:
             _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, '<DestroyConnection> raised')
-            self.current_connection.destroy()
+            self.current_connection.destroy(force=True)
+            await self.server.autoclose(self.connection, self.current_connection, "erract")
         except self.ShutdownServer as e:
             _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, f'<ShutdownServer(force={e.force})> raised')
-            self.server.shutdown(e.force)
+            self.server.shutdown(e.force, _skip_conn_locks={self.connection, self.current_connection, self.session_connection, self.response_connection})
         except Exception as e:
             _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, 'unexpected error raised while processing order -> sending { "error": {...} }')
             try:
-                await self.response_connection.send_response(
+                self.response_connection._coro_run(self.response_connection.send_response(
                     self.serialize_output(
                         {
                             "errors": -1,
                             "error": self.exception_message_formatter(e)
                         }
                     )
-                )
+                ))
             except Exception as e:
                 _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, "unexpected error raised while handling above exception -> sending null-byte")
                 try:
-                    await self.response_connection.send_response(b"\x00")
+                    self.response_connection._coro_run(self.response_connection.send_response(b"\x00"))
                 except Exception as e:
                     _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, f"unexpected error raised while handling above exception -> destroy connection: {self.response_connection}")
                     try:
                         if not self.response_connection.writer.is_closing():
-                            self.response_connection.destroy()
+                            self.response_connection.destroy(force=True)
                         else:
                             self.response_connection.thread.connections.discard(self.response_connection)
+                        await self.server.autoclose(self.connection, self.response_connection, "fatal error")
                     except Exception as e:
                         _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, f"unexpected error raised while handling above exception -> forceful server shutdown")
                         self.server.shutdown(force=True)
@@ -811,7 +838,7 @@ class Cursor(sqlite3.Cursor):
         sqlite3.Cursor.__init__(self, connection)
 
     def _t_lock_acquire(self) -> Cursor:
-        if not self._t_lock.acquire(timeout=2):
+        if not self._t_lock.acquire(timeout=self.database.server.config.locktimeout.database):
             raise FatalError(f"(t_lock) SQL access for {self.handler}")
         return self
 
@@ -890,13 +917,15 @@ class Database:
             self.session_key = session_key or uuid4().__str__()
         self.side_cursors = dict()
 
-    def close(self, force: bool = False):
+    def close(self, force: bool = False, commit: bool = False):
         """remove the ``Database`` from handling and close the ``sqlite3.Connection``,
         do not wait for the lock to be released if `force` is ``True``"""
 
         def _close():
             for conn, cur in self.side_cursors.copy().items():
                 cur.destroy(conn, force)
+            if commit:
+                self.connection.commit()
             self.connection.close()
             self.server.databases.pop(self.session_key)
 
@@ -978,12 +1007,11 @@ class Connection(ConnectionWorker):
     ws_stream_reader: wsdatautil.ProgressiveStreamReader
     reader: asyncio.StreamReader
     writer: asyncio.StreamWriter
-    sock: socket.socket
+    sock: _socket.socket
     address: tuple[str, int]
     description: dict
     _side_cursors: set[Cursor]
-    ws_handshake_timeout: float | None
-    _keep_alive: bool
+    _alive: bool
     _t_lock: threading.Lock
     autoclose_value: int
     operator: Operator
@@ -992,7 +1020,7 @@ class Connection(ConnectionWorker):
             self,
             server: Server,
             thread: ConnectionsThread | None,
-            sock: socket.socket,
+            sock: _socket.socket,
             addr: tuple[str, int],
     ):
         """
@@ -1000,11 +1028,9 @@ class Connection(ConnectionWorker):
         :param thread: the ConnectionsThread
         :param sock: the client socket
         :param addr: the client address
-        :param ws_handshake_timeout: set the timeout in seconds until the handshake header must be transmitted
         """
         ConnectionWorker.__init__(self, server, thread)
         self.ws_stream_reader = wsdatautil.ProgressiveStreamReader("auto")
-        self.ws_handshake_timeout = ws_handshake_timeout
         self.sock = sock
         self.address = addr
         self._side_cursors = set()
@@ -1016,7 +1042,7 @@ class Connection(ConnectionWorker):
             "address": self.address,
             "thread": self.thread.properties if self.thread else None,
         }
-        self._keep_alive = True
+        self._alive = True
         self._t_lock = threading.Lock()
         self.autoclose_value = 0x10
         self.operator = self.server.factory_Operator(self)
@@ -1029,14 +1055,14 @@ class Connection(ConnectionWorker):
         self._t_lock.release()
 
     def __enter__(self):
-        self._t_lock.acquire()
+        self._t_lock_acquire()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._t_lock.release()
+        self._t_lock_release()
 
     async def ws_wait_handshake(self) -> wsdatautil.HandshakeRequest:
         """Wait for a ws handshake header."""
-        handshake_data = await asyncio.wait_for(self.reader.readuntil(b'\r\n\r\n'), self.ws_handshake_timeout)
+        handshake_data = await asyncio.wait_for(self.reader.readuntil(b'\r\n\r\n'), self.server.config.ws.handshake_timeout)
         return wsdatautil.HandshakeRequest.from_streamdata(handshake_data)
 
     async def ws_send_handshake_response(self, request: wsdatautil.HandshakeRequest) -> None:
@@ -1086,14 +1112,16 @@ class Connection(ConnectionWorker):
         Waits for incoming ws frames and sends the payload data to the Operator."""
         frames = await self.read_frames_until_fin()
         with self:
-            await self.server.operator(self, bytes().join(f.payload for f in frames))
+            self._coro_run(self.operator(bytes().join(f.payload for f in frames)))
 
     async def run(self) -> None:
         """the main loop"""
         if not await self.ws_handshake():
             self.destroy()
+            await self.server.autoclose(self, self, "handshake timeout")
+            return
         try:
-            while self._keep_alive:
+            while self._alive:
                 try:
                     await self.read_iteration()
                 except self.CloseSignal:
@@ -1107,7 +1135,8 @@ class Connection(ConnectionWorker):
         except Exception as e:
             _FATAL_ERROR_HANDLE(self.server, self.id, e, "exception raised by errorhandler -> destroy connection")
         finally:
-            self.destroy()
+            if self.destroy():
+                await self.server.autoclose(self, self, "loop canceled")
 
     async def start(self) -> None:
         """Create the StreamReader and StreamWriter object and start the main loop (``run``)"""
@@ -1118,7 +1147,7 @@ class Connection(ConnectionWorker):
 
     async def at_ws_close(self, frame: wsdatautil.Frame) -> None:
         """Executed with a received close-frame. By default, ``WsClose`` is raised, which closes the connection."""
-        # code, msg = wsdatautil.get_close_code_and_message_from_frame(frame)
+        # code, msg = wsdatautil.get_close_code_and_messagefrom__frame(frame)
         raise self.CloseSignal
 
     async def at_ws_ping(self, frame: wsdatautil.Frame) -> None:
@@ -1189,15 +1218,22 @@ class Connection(ConnectionWorker):
         """return self.description.pop(key)"""
         return self.description.pop(key)
 
-    def destroy(self) -> None:
+    def destroy(self, force: bool = False, _skip_conn_locks: set[Connection] = ()) -> bool:
         """close the connection and remove the Connection object from the parent thread"""
-        self._keep_alive = False
-        self.reader.feed_eof()
-        self.sock.close()
-        self.writer.close()
-        self.thread.connections.discard(self)
-        for cur in self._side_cursors.copy():
-            cur.destroy(self, False)
+        if v := self._alive:
+            self._alive = False
+
+            def _destroy():
+                try:
+                    self.reader.feed_data(b'\0\0')
+                except AssertionError:
+                    pass
+                self.reader.feed_eof()
+                self.sock.close()
+                self.writer.close()
+                self.thread.connections.discard(self)
+                for cur in self._side_cursors.copy():
+                    cur.destroy(self, False)
 
             if force or self in _skip_conn_locks:
                 _destroy()
@@ -1254,7 +1290,7 @@ class ConnectionsThread(threading.Thread, ConnectionWorker):
         asyncio.set_event_loop(self.async_loop)
         self.async_loop.run_forever()
 
-    async def add_conn(self, sock: socket.socket, addr: tuple[str, int]) -> None:
+    async def add_conn(self, sock: _socket.socket, addr: tuple[str, int]) -> None:
         """Add a connection to this thread."""
         self.connections.add(
             conn := self.server.factory_Connection(
@@ -1264,29 +1300,24 @@ class ConnectionsThread(threading.Thread, ConnectionWorker):
                 addr,
             )
         )
-        asyncio.run_coroutine_threadsafe(conn.start(), self.async_loop)
+        conn._coro_run(conn.start())
 
     async def broadcast(self, payload: bytes, except_: Connection) -> None:
         """Send `payload` to all connections of this thread [`except_` <connection.id>]."""
         if except_:
             for conn in self.connections:
                 if conn != except_:
-                    asyncio.run_coroutine_threadsafe(conn.send_broadcast(payload), self.async_loop)
+                    conn._coro_run(conn.send_broadcast(payload))
         else:
             for conn in self.connections:
-                asyncio.run_coroutine_threadsafe(conn.send_broadcast(payload), self.async_loop)
+                conn._coro_run(conn.send_broadcast(payload))
 
-    def destroy(self) -> None:
+    def destroy(self, force: bool = False, _skip_conn_locks: set[Connection] = ()) -> None:
         """close all connections of the thread and stop the async loop"""
         for task in asyncio.all_tasks(self.async_loop):
             task.cancel()
         for conn in self.connections.copy():
-            conn.destroy()
-        filterwarnings(
-            'ignore',
-            message=r'^coroutine .* was never awaited$',
-            category=RuntimeWarning
-        )
+            conn.destroy(force, _skip_conn_locks)
         self.async_loop.call_soon_threadsafe(self.async_loop.stop, )  # type-hint-bug: Unpack[_Ts]
 
 
@@ -1320,13 +1351,12 @@ class ServerConfig:
 
 class Server(threading.Thread):
     databases: dict[Any, Database]
+    socket: _socket.socket
     address: tuple[str, int]
-    sock: sock.socket
     threads: set[ConnectionsThread]
-    _conn_req_: Callable[[socket.socket, tuple[str, int]], None | Coroutine]
-    operator: Operator
+    _conn_req_: Callable[[_socket.socket, tuple[str, int]], None | Coroutine]
     async_loop: asyncio.AbstractEventLoop
-    _keep_alive: bool = True
+    _alive: bool = True
     factory_Connection: Callable[..., Connection] | Type[Connection]
     factory_Database: Callable[..., Database] | Type[Database]
     factory_Operator: Callable[..., Operator]
@@ -1335,8 +1365,7 @@ class Server(threading.Thread):
 
     def __init__(
             self,
-            host: str,
-            port: int,
+            socket: tuple[str, int] | _socket.socket,
             threads: int = 1,
             connections_per_thread: int = 0,
             factory_Connection: Callable[..., Connection] = Connection,
@@ -1346,8 +1375,7 @@ class Server(threading.Thread):
             config: ServerConfig = ServerConfig()
     ):
         """
-        :param host: server host
-        :param port: server port
+        :param socket: an established IPv4 socket or an address tuple
         :param threads: count of sub threads
         :param connections_per_thread: Limit the number of connections per thread. Numbers less than 1 correspond to no limit (default)
         :param factory_Connection: receives the parameters and must return a Connection instance
@@ -1358,7 +1386,6 @@ class Server(threading.Thread):
         threading.Thread.__init__(self)
         self.databases = dict()
         self.threads = set()
-        self.address = (host, port)
         self.factory_Connection = factory_Connection
         self.factory_Database = factory_Database
         self.factory_Operator = factory_Operator
@@ -1378,7 +1405,7 @@ class Server(threading.Thread):
             self.threads.add(ct)
 
         if connections_per_thread > 0:
-            async def _conn_req_(sock: socket.socket, addr: tuple[str, int]):
+            async def _conn_req_(sock: _socket.socket, addr: tuple[str, int]):
                 for ct in self.threads:
                     if len(ct.connections) < connections_per_thread:
                         await ct.add_conn(sock, addr)
@@ -1386,12 +1413,10 @@ class Server(threading.Thread):
                 else:
                     sock.close()
         else:
-            async def _conn_req_(sock: socket.socket, addr: tuple[str, int]):
+            async def _conn_req_(sock: _socket.socket, addr: tuple[str, int]):
                 await min(self.threads, key=lambda c: len(c.connections)).add_conn(sock, addr)
 
         self._conn_req_ = _conn_req_
-
-        self.operator = factory_Operator(self)
 
     @overload
     def add_database(self, session_key: Hashable | None, sqlite3_connect_database: str | bytes | PathLike[str] | PathLike[bytes], /, **sqlite3_connect_kwargs) -> Database:
@@ -1537,19 +1562,13 @@ class Server(threading.Thread):
         """process a connection request"""
         await self._conn_req_(sock, addr)
 
-    async def open_socket(self):
-        """open the socket"""
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.bind(self.address)
-        self.sock.listen()
-
     async def serve(self) -> None:
         """open the socket and run the mainloop"""
-        await self.open_socket()
         self.async_loop = asyncio.get_event_loop()
-        with self.sock:
-            while self._keep_alive:
-                await self.connection_request(*self.sock.accept())
+        self.socket.listen()
+        with self.socket:
+            while self._alive:
+                await self.connection_request(*self.socket.accept())
 
     def run(self) -> None:
         """asyncio.run(self.serve())"""
@@ -1573,29 +1592,29 @@ class Server(threading.Thread):
         if except_:
             for conn in self.all_connections:
                 if conn != except_:
-                    asyncio.run_coroutine_threadsafe(conn.send_broadcast(payload), conn.thread.async_loop)
+                    conn._coro_run(conn.send_broadcast(payload))
         else:
             for conn in self.all_connections:
-                asyncio.run_coroutine_threadsafe(conn.send_broadcast(payload), conn.thread.async_loop)
+                conn._coro_run(conn.send_broadcast(payload))
 
-    def shutdown(self, force: bool = False) -> None:
+    def shutdown(self, force: bool = False, sql_commit: bool = False, _skip_conn_locks: set[Connection] = ()) -> None:
         """Close all connections and shut down the server.
         Do not wait for lock's if `force` is ``True``."""
 
         for sql in self.databases.copy().values():
             try:
-                sql.close(force)
+                sql.close(force=force, commit=sql_commit)
             except Exception as e:
                 _FATAL_ERROR_HANDLE(self, "", e, f"shutdown @ close {sql}")
 
-        self._keep_alive = False
+        self._alive = False
 
         async def _conn_req_(*args):
             pass
 
         self._conn_req_ = _conn_req_
         try:
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as sock:
                 sock.settimeout(.1)
                 sock.connect(self.address)
         except Exception as e:
@@ -1603,11 +1622,11 @@ class Server(threading.Thread):
         for task in asyncio.all_tasks():
             task.cancel()
         try:
-            self.sock.close()
+            self.socket.close()
         except Exception as e:
             _FATAL_ERROR_HANDLE(self, "", e, "shutdown @ close socket")
         for thread in self.threads.copy():
             try:
-                thread.destroy()
+                thread.destroy(force=force, _skip_conn_locks=_skip_conn_locks)
             except Exception as e:
                 _FATAL_ERROR_HANDLE(self, "", e, f"shutdown @ destroy thread {thread.id}")

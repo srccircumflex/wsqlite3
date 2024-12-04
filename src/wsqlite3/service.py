@@ -1259,6 +1259,34 @@ class ConnectionsThread(threading.Thread, ConnectionWorker):
         self.async_loop.call_soon_threadsafe(self.async_loop.stop, )  # type-hint-bug: Unpack[_Ts]
 
 
+@dataclass
+class ServerConfig:
+    
+    @dataclass
+    class AutocloseConf:
+        block: bool = True
+        request: bool = True
+        wait_response: float = 8.0
+        wait_close: float = 8.0
+        force_shutdown: bool = False
+        sql_commit: bool = False
+    
+    autoclose: AutocloseConf = AutocloseConf()
+
+    @dataclass
+    class LockTimeoutConf:
+        database: float = 3
+        connection: float = 5
+    
+    locktimeout: LockTimeoutConf = LockTimeoutConf()
+
+    @dataclass
+    class WebSockConf:
+        handshake_timeout: float | None = 2
+    
+    ws: WebSockConf = WebSockConf()
+
+
 class Server(threading.Thread):
     databases: dict[Any, Database]
     address: tuple[str, int]
@@ -1270,6 +1298,9 @@ class Server(threading.Thread):
     _keep_alive: bool = True
     factory_Connection: Callable[..., Connection] | Type[Connection]
     factory_Database: Callable[..., Database] | Type[Database]
+    factory_Operator: Callable[..., Operator]
+    config: ServerConfig
+    _autoclose_cancel: bool | Literal[-1]
 
     def __init__(
             self,
@@ -1281,6 +1312,7 @@ class Server(threading.Thread):
             factory_ConnectionsThread: Callable[..., ConnectionsThread] = ConnectionsThread,
             factory_Operator: Callable[..., Operator] = Operator,
             factory_Database: Callable[..., Database] = Database,
+            config: ServerConfig = ServerConfig()
     ):
         """
         :param host: server host
@@ -1298,6 +1330,16 @@ class Server(threading.Thread):
         self.address = (host, port)
         self.factory_Connection = factory_Connection
         self.factory_Database = factory_Database
+        self.factory_Operator = factory_Operator
+        self.config = config
+        
+        if isinstance(socket, _socket.socket):
+            self.socket = socket
+            self.address = self.socket.getsockname()
+        else:
+            self.socket = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+            self.socket.bind(socket)
+            self.address = socket
 
         for _ in range(max(1, threads)):
             ct = factory_ConnectionsThread(self)

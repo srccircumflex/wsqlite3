@@ -569,6 +569,8 @@ class Operator:
 
     async def read_orders(self, order_root: dict, res_order: dict):
         err = 0
+        res = dict(error=-1)
+        res_order["flag"] = order_root.pop("flag", None)
         for k, m in self.order_grid.items():
             try:
                 if order := order_root.pop(k, None):
@@ -589,7 +591,8 @@ class Operator:
                 order_chain = [order_chain]
 
             orders_out = list()
-            res_order = dict()
+            res_order = dict()  # for empty order chain
+            res_flags = list()
             err = 0
             try:
                 for order_part in order_chain:
@@ -599,6 +602,10 @@ class Operator:
                         err = (await self.read_orders(order_part, res_order)) or err
                     except self.CancelOrder:
                         err = 3
+                    finally:
+                        res_flags.append(res_order.get("flag"))
+                        if self.current_connection not in (self.connection, self.session_connection, self.response_connection):
+                            self.current_connection._t_lock_release()
                     res_order["errors"] = err
             except self.CancelSession:
                 err = 4
@@ -608,6 +615,7 @@ class Operator:
                 self.serialize_output(
                     {
                         "orders": orders_out,
+                        "flags": res_flags,
                         "errors": err,
                         "error": res_order.get("error")
                     }

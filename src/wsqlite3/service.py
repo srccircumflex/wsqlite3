@@ -907,14 +907,15 @@ class Connection(ConnectionWorker):
     ws_handshake_timeout: float | None
     _keep_alive: bool
     _t_lock: threading.Lock
-    
+    autoclose_value: int
+    operator: Operator
+
     def __init__(
             self,
             server: Server,
             thread: ConnectionsThread | None,
             sock: socket.socket,
             addr: tuple[str, int],
-            ws_handshake_timeout: float | None = 2,
     ):
         """
         :param server: the Server

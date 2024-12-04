@@ -246,17 +246,42 @@ class Operator:
         return 0
 
     async def proc_order__connection(self, order: dict, res: dict):
+        def conn_release():
+            pass
+
         try:
             conn = self.current_connection
             if get := order.pop("get", ""):
                 conn = self.server.get_connection(get)
+
                 set_ = order.pop("set", None)
                 if set_ == "session":
-                    self.session_connection = conn
+                    if self.current_connection not in (conn, self.connection, self.response_connection, self.session_connection):
+                        self.current_connection._t_lock_release()
+                    if self.session_connection not in (conn, self.connection, self.response_connection, self.current_connection):
+                        self.session_connection._t_lock_release()
+                    if conn not in (self.response_connection, self.connection, self.current_connection, self.session_connection):
+                        conn._t_lock_acquire()
+                    self.current_connection = self.session_connection = conn
                 elif set_ == "response":
+                    if self.response_connection not in (conn, self.connection, self.current_connection, self.session_connection):
+                        self.response_connection._t_lock_release()
+                    if conn not in (self.response_connection, self.connection, self.current_connection, self.session_connection):
+                        conn._t_lock_acquire()
                     self.response_connection = conn
                 elif set_:
+                    if self.current_connection not in (conn, self.connection, self.response_connection, self.session_connection):
+                        self.current_connection._t_lock_release()
+                    if conn not in (self.response_connection, self.connection, self.current_connection, self.session_connection):
+                        conn._t_lock_acquire()
                     self.current_connection = conn
+
+                else:
+                    if conn not in (self.response_connection, self.connection, self.current_connection, self.session_connection):
+                        conn._t_lock_acquire()
+
+                        def conn_release(): conn._t_lock_release()
+
             if order.pop("id", None):
                 res["id"] = conn.id
             if send := order.pop("send", None):
@@ -278,6 +303,8 @@ class Operator:
         except Exception as exc:
             self.exception_handle(order, res, exc)
             return 2
+        finally:
+            conn_release()
         return 0
 
     async def proc_order__server(self, order: dict, res: dict):
@@ -516,8 +543,9 @@ class Operator:
                 raise
         return err
 
-    async def __call__(self, conn: Connection, order_payload: bytes):
-        self.session_connection = self.response_connection = conn
+    async def __call__(self, order_payload: bytes):
+        self.session_connection = self.response_connection = self.connection
+        self.connection._t_lock_acquire()
         try:
             order_chain: dict | list[dict] = self.deserialize_input(order_payload)
 
@@ -583,6 +611,12 @@ class Operator:
                     except Exception as e:
                         _FATAL_ERROR_HANDLE(self.server, self.current_connection.id, e, f"unexpected error raised while handling above exception -> forceful server shutdown")
                         self.server.shutdown(force=True)
+        finally:
+            self.connection._t_lock_release()
+            if self.session_connection != self.connection:
+                self.session_connection._t_lock_release()
+            if self.response_connection not in (self.connection, self.session_connection):
+                self.response_connection._t_lock_release()
 
 
 class Cursor(sqlite3.Cursor):
@@ -940,6 +974,15 @@ class Connection(ConnectionWorker):
         }
         self._keep_alive = True
         self._t_lock = threading.Lock()
+        self.autoclose_value = 0x10
+        self.operator = self.server.factory_Operator(self)
+
+    def _t_lock_acquire(self):
+        if not self._t_lock.acquire(timeout=self.server.config.locktimeout.connection):
+            raise FatalError(f"(t_lock) CONNECTION {self} access")
+
+    def _t_lock_release(self):
+        self._t_lock.release()
 
     def __enter__(self):
         self._t_lock.acquire()

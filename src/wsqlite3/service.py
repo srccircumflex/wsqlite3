@@ -298,8 +298,12 @@ class Operator:
             if order.pop("properties", None):
                 res["properties"] = conn.properties
             if order.pop("destroy", None):
-                conn.destroy()
-                await self.server.autoclose(0)
+                conn.destroy(force=True)
+                conn._coro_run(self.server.autoclose(self.connection, conn, "destroy ordered"))
+                if conn == self.response_connection:
+                    raise self._NoResponse
+        except self._NoResponse:
+            raise
         except Exception as exc:
             self.exception_handle(order, res, exc)
             return 2
@@ -526,6 +530,38 @@ class Operator:
                     "from": self.current_connection.id,
                 }
             ), None if order.pop("self", False) else self.current_connection)
+        except Exception as exc:
+            self.exception_handle(order, res, exc)
+            return 2
+        return 0
+
+    async def proc_order__autoclose(self, order: dict, res: dict):
+        try:
+            try:
+                if not (isinstance(cancel := order.pop("cancel"), bool) or cancel is None):
+                    raise OrderError('"autoclose": "cancel": must be a boolean value or None')
+                if cancel is not None:
+                    if cancel is False:
+                        cancel = -1
+                    self.server._autoclose_cancel |= cancel
+            except KeyError:
+                pass
+            if (value := order.pop("value", None)) is not None:
+                if isinstance(value, str):
+                    value = {"block": 0x10, "request": 0x01, "skip!": 0x100}.get(value)
+                if not isinstance(value, int):
+                    raise OrderError('"autoclose": "value": must be "block", "request" or an integer value (0)')
+                self.current_connection.autoclose_value = value
+            if order.pop("config", None):
+                res["config"] = {
+                    k: self.server.config.autoclose.__dict__[k]
+                    for k in self.server.config.autoclose.__annotations__
+                }
+            for k in self.server.config.autoclose.__annotations__:
+                if (val := order.pop("config." + k, None)) is not None:
+                    self.server.config.autoclose.__dict__[k] = val
+            if order.pop("trigger", None):
+                await self.server.autoclose(self.connection, self.connection, "trigger ordered")
         except Exception as exc:
             self.exception_handle(order, res, exc)
             return 2
@@ -1110,6 +1146,21 @@ class Connection(ConnectionWorker):
         ).to_streamdata())
         await self.writer.drain()
 
+    async def send_autoclose_request(self, trigger: Connection, reason: str, connection_total: int) -> None:
+        """Send ``{"autoclose":{"trigger":trigger,"value":value}}`` as payload of a ws frame to the client.
+        The method is used by ``Server.autoclose`` when the request function is triggered."""
+        self.writer.write(wsdatautil.Frame(
+            self.operator.serialize_output(
+                {"autoclose": {
+                    "trigger": trigger.id,
+                    "reason": reason,
+                    "connection_total": connection_total
+                }}
+            ),
+            wsdatautil.OPCODES.BINARY,
+        ).to_streamdata())
+        await self.writer.drain()
+
     async def feed(self, payload: bytes) -> None:
         """Generate ws frames with `payload` and feed the reader."""
         self.reader.feed_data(wsdatautil.Frame(
@@ -1361,7 +1412,55 @@ class Server(threading.Thread):
         else:
             raise IdError(id)
 
-    async def connection_request(self, sock: socket.socket, addr: tuple[str, int]) -> None:
+    async def autoclose(self, from_: Connection, trigger: Connection, reason: str):
+        if trigger.autoclose_value == 0x100:
+            return
+
+        all_connections = self.all_connections
+
+        def _conn_value():
+            __conn_value = 0
+            for conn in all_connections:
+                __conn_value |= conn.autoclose_value
+            return __conn_value
+
+        conn_value = _conn_value()
+
+        async def request():
+            nonlocal conn_value
+            self._autoclose_cancel = False
+            for conn in self.all_connections:
+                if conn != from_:
+                    with conn:
+                        await conn.send_autoclose_request(trigger, reason, conn_value)
+            await asyncio.sleep(self.config.autoclose.wait_response)
+            conn_value = _conn_value()
+            if conn_value == 0:
+                self.shutdown(force=self.config.autoclose.force_shutdown, sql_commit=self.config.autoclose.sql_commit, _skip_conn_locks={from_, trigger})
+            elif 0x10 & conn_value:
+                return
+            elif not self._autoclose_cancel == True:
+                self.shutdown(force=self.config.autoclose.force_shutdown, sql_commit=self.config.autoclose.sql_commit, _skip_conn_locks={from_, trigger})
+
+        async def close():
+            await asyncio.sleep(self.config.autoclose.wait_close)
+            conn_value = _conn_value()
+            if conn_value == 0:
+                self.shutdown(force=self.config.autoclose.force_shutdown, sql_commit=self.config.autoclose.sql_commit, _skip_conn_locks={from_, trigger})
+            elif 0x10 & conn_value:
+                return
+            elif self.config.autoclose.request and 0x01 & conn_value:
+                await request()
+            else:
+                self.shutdown(force=self.config.autoclose.force_shutdown, sql_commit=self.config.autoclose.sql_commit, _skip_conn_locks={from_, trigger})
+
+        if self.config.autoclose.block and not 0x10 & conn_value:
+            if self.config.autoclose.request and 0x01 & conn_value:
+                await request()
+            else:
+                await close()
+
+    async def connection_request(self, sock: _socket.socket, addr: tuple[str, int]) -> None:
         """process a connection request"""
         await self._conn_req_(sock, addr)
 

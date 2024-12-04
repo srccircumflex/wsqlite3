@@ -1199,6 +1199,29 @@ class Connection(ConnectionWorker):
         for cur in self._side_cursors.copy():
             cur.destroy(self, False)
 
+            if force or self in _skip_conn_locks:
+                _destroy()
+            else:
+                with self:
+                    _destroy()
+        return v
+
+    def _coro_run(self, coro):
+        fut = asyncio.run_coroutine_threadsafe(
+            coro,
+            self.thread.async_loop
+        )
+        fut.add_done_callback(
+            self._coro_done
+        )
+        return fut
+
+    def _coro_done(self, fut: concurrent.futures.Future):
+        try:
+            fut.result()
+        except concurrent.futures.CancelledError:
+            pass
+
 
 class ConnectionsThread(threading.Thread, ConnectionWorker):
     connections: set[Connection]

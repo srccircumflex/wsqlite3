@@ -455,7 +455,10 @@
       <h2 id="the-service-module">The service module</h2>
       <p>The objects in the service module of <b>WSQLite3</b> offer several interfaces and preliminary work for inheritance in order to add application-related functionalities.</p>
       <p>The main object is the <o_server></o_server>, which in its simplest form can be defined for example by</p>
-      <article class="markdown-body"><pre><code class="fenced-code-block language-python">server <span class="token operator">=</span> Server<span class="token punctuation">(</span>sqlite3<span class="token punctuation">.</span>connect<span class="token punctuation">(</span><span class="token string">":memory:"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token string">"localhost"</span><span class="token punctuation">,</span> <span class="token number">9000</span><span class="token punctuation">)</span></code></pre></article>
+      <article class="markdown-body">
+<pre><code class="fenced-code-block language-python">server <span class="token operator">=</span> wsqlite3<span class="token punctuation">.</span>Server<span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">,</span> <span class="token number">9998</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+server<span class="token punctuation">.</span>add_database<span class="token punctuation">(</span><span class="token boolean">None</span><span class="token punctuation">,</span> <span class="token string">":memory:"</span><span class="token punctuation">)</span></code></pre>
+      </article>
       <p>and started via</p>
       <article class="markdown-body"><pre><code class="fenced-code-block language-python">server<span class="token punctuation">.</span>run<span class="token punctuation">(</span><span class="token punctuation">)</span></code></pre></article>
       <p>or as a daemon thread via</p>

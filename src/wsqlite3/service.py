@@ -1511,7 +1511,7 @@ class Server(threading.Thread):
             raise IdError(id)
 
     async def autoclose(self, from_: Connection, trigger: Connection, reason: str):
-        if trigger.autoclose_value == 0x100:
+        if trigger.autoclose_value & 0x100:
             return
 
         all_connections = self.all_connections

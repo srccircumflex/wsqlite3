@@ -21,7 +21,7 @@ try:
         try:
             return _shutdown_()
         except KeyboardInterrupt:
-            pass
+            print()
 
 
     threading._shutdown = _shutdown

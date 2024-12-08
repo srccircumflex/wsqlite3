@@ -204,7 +204,7 @@ class Operator:
                 elif val.startswith("t:"):
                     _tb_params[i] = val[2:]
                 else:
-                    raise OrderError('each string in "tb:params" must be prefixed by "t:" or "p:"')
+                    raise OrderError('each string in "tb:params" must be prefixed by "t:" or "b:"')
         return _tb_params
 
     def deserialize_input(self, payload: bytes) -> dict | list[dict]:

@@ -1058,7 +1058,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
           <details class="__l1">
             <summary>
               <span>
-                <span class="__input-field">"cancel"</span>: <t_bool>(true|<b>explicit</b> false)</t_bool> | <t_none></t_none>,
+                <span class="__input-field">"cancel"</span>: <t_bool>(true|<b>explicit</b> false)</t_bool> | <t_int>(2)</t_int> | <t_none></t_none>,
                 <span class="__input-field">"value"</span>: <t_str>("block")</t_str> | <t_str>("request")</t_str> | <t_int>(0)</t_int> | <t_str>("skip!")</t_str>,
                 <span class="__input-field">"config"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"config"</span>: <t_dict>autoclose config</t_dict>,
                 <span class="__input-field">"config.block"</span>: <t_bool></t_bool>,
@@ -1076,7 +1076,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
                 since 0.5
               </p>
             </div>
-            <span class="__input-field">"cancel"</span>: <t_bool>(true|<b>explicit</b> false)</t_bool> | <t_none></t_none>
+            <span class="__input-field">"cancel"</span>: <t_bool>(true|<b>explicit</b> false)</t_bool> | <t_int>(2)</t_int> | <t_none></t_none>
             <p></p>
             <p>
               Response to a request (see <a href="#autoclose">autoclose</a>).
@@ -1084,6 +1084,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
             <table>
               <tbody>
               <tr><td><t_bool>(true)</t_bool></td><td>cancel the automatic closing</td></tr>
+              <tr><td><t_int>(2)</t_int></td><td>cancel the automatic closing cancel automatic closing even if there is no connection after the timeout</td></tr>
               <tr><td><t_bool>(false)</t_bool></td><td>execute the automatic closing <b>explicitly</b></td></tr>
               </tbody>
             </table>

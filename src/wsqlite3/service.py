@@ -563,10 +563,10 @@ class Operator:
     async def proc_order__autoclose(self, order: dict, res: dict):
         try:
             try:
-                if not (isinstance(cancel := order.pop("cancel"), bool) or cancel is None):
-                    raise OrderError('"autoclose": "cancel": must be a boolean value or None')
+                if not (isinstance(cancel := order.pop("cancel"), int) or cancel is None):
+                    raise OrderError('"autoclose": "cancel": must be a boolean value, -1, 0, 1, 2 or None')
                 if cancel is not None:
-                    if cancel is False:
+                    if not cancel:
                         cancel = -1
                     self.server._autoclose_cancel |= cancel
             except KeyError:
@@ -1361,7 +1361,7 @@ class Server(threading.Thread):
     factory_Database: Callable[..., Database] | Type[Database]
     factory_Operator: Callable[..., Operator]
     config: ServerConfig
-    _autoclose_cancel: bool | Literal[-1]
+    _autoclose_cancel: Literal[-1, 0, 1, 2]
 
     def __init__(
             self,
@@ -1390,7 +1390,8 @@ class Server(threading.Thread):
         self.factory_Database = factory_Database
         self.factory_Operator = factory_Operator
         self.config = config
-        
+        self._autoclose_cancel = 0
+
         if isinstance(socket, _socket.socket):
             self.socket = socket
             self.address = self.socket.getsockname()
@@ -1526,30 +1527,35 @@ class Server(threading.Thread):
 
         async def request():
             nonlocal conn_value
-            self._autoclose_cancel = False
+            self._autoclose_cancel = 0
             for conn in self.all_connections:
                 if conn != from_:
                     with conn:
                         await conn.send_autoclose_request(trigger, reason, conn_value)
             await asyncio.sleep(self.config.autoclose.wait_response)
             conn_value = _conn_value()
-            if conn_value == 0:
+            if self._autoclose_cancel == 2:
+                return
+            elif conn_value == 0:
                 self.shutdown(force=self.config.autoclose.force_shutdown, sql_commit=self.config.autoclose.sql_commit, _skip_conn_locks={from_, trigger})
             elif 0x10 & conn_value:
                 return
-            elif not self._autoclose_cancel == True:
+            elif not (self._autoclose_cancel == 1):
                 self.shutdown(force=self.config.autoclose.force_shutdown, sql_commit=self.config.autoclose.sql_commit, _skip_conn_locks={from_, trigger})
 
         async def close():
+            self._autoclose_cancel = 0
             await asyncio.sleep(self.config.autoclose.wait_close)
             conn_value = _conn_value()
-            if conn_value == 0:
+            if self._autoclose_cancel == 2:
+                return
+            elif conn_value == 0:
                 self.shutdown(force=self.config.autoclose.force_shutdown, sql_commit=self.config.autoclose.sql_commit, _skip_conn_locks={from_, trigger})
             elif 0x10 & conn_value:
                 return
             elif self.config.autoclose.request and 0x01 & conn_value:
                 await request()
-            else:
+            elif not (self._autoclose_cancel == 1):
                 self.shutdown(force=self.config.autoclose.force_shutdown, sql_commit=self.config.autoclose.sql_commit, _skip_conn_locks={from_, trigger})
 
         if self.config.autoclose.block and not 0x10 & conn_value:

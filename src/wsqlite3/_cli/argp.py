@@ -53,7 +53,7 @@ class _Dir:
 class DStart(_Dir):
     name = "start"
     description = "start the service"
-    epilog = " "
+    epilog = "a non detached process can be terminated by ctrl+c (depending on the version of asyncio a second SIGINT signal may be necessary)"
 
     def add_args(self):
         self.parser.add_argument("--name", type=str, default="", help="registry name")
@@ -61,9 +61,12 @@ class DStart(_Dir):
         self.parser.add_argument("--port", type=int, default=9998, help="server port")
         self.parser.add_argument("--threads", type=int, default=1, help="n threads")
         self.parser.add_argument("--cpt", type=int, default=0, help="connections per thread")
-        self.parser.add_argument("--derivative", type=str, default=None, help="use the derived module under file path, must contain an object named <Server>")
+        self.parser.add_argument("--derivative", type=str, default=None, help="use the derived module under file path, must contain an object named <Server>", metavar="PATH")
         self.parser.add_argument("--debug", action="store_true", default=False, help="use <DebugServer> (ignored in combination with --derivative)")
         self.parser.add_argument("--verbose", action="store_true", default=False, help="use <VerboseServer> (ignored in combination with --derivative or --debug)")
+        self.parser.add_argument("--detach", action="store_true", default=False, help="detach the process")
+        self.parser.add_argument("--prevent-autoclose", action="store_true", default=False, help="interrupt a running auto close process and make sure that the service is running (!does not interrupt an explicit auto close!)")
+        self.parser.add_argument("--check-autoclose", type=float, default=None, help="trigger the autoclose function after the given seconds", metavar="SECONDS")
 
 
 class DStop(_Dir):
@@ -95,6 +98,7 @@ class DRegistry(_Dir):
         self.parser.add_argument("--name", type=str, default="", help="registry name")
         self.parser.add_argument("--all", action="store_true", help="")
         self.parser.add_argument("--force-flush", action="store_true", help="destroy the registry")
+        self.parser.add_argument("--auto-flush", action="store_true", help="remove unreachable records from the registry")
         self.parser.add_argument("--get-file", action="store_true", help="get the registry file path")
 
 

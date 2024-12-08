@@ -4,13 +4,17 @@ import atexit
 import importlib.util
 import json
 import socket as _socket
+import subprocess
 import sys
+import time
 from typing import Type
 
 try:
     from .. import service, verbose_service, baseclient, __version__
+    from . import servreg, argp
 except ImportError:
     from wsqlite3 import service, verbose_service, baseclient, __version__
+    from wsqlite3._cli import servreg, argp
 
 try:
     import threading
@@ -27,9 +31,6 @@ try:
     threading._shutdown = _shutdown
 except Exception:
     raise
-
-from . import servreg
-from . import argp
 
 
 class _Exit(Exception):
@@ -69,16 +70,57 @@ class _ServiceConf:
     connections_per_thread: int = 0
     session_name: str = ""
 
-    def start(self) -> service.Server:
-        with self.Reg() as reg:
-            _set_to_reg(self.session_name, reg, [self.host, self.port])
-            atexit.register(self._flush)
-            server = self.Server((self.host, self.port), self.threads, self.connections_per_thread)
-            server.socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
-            server.socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEPORT, 1)
-            server.start(wait_iterations=True)
+    prevent_autoclose: bool = False
+    check_autoclose: float = False
+
+    _detached: bool = False
+
+    def _check_autoclose(self):
+        time.sleep(0.2)
+        time.sleep(self.check_autoclose)
+        try:
+            client = baseclient.Connection(self.host, self.port)
+            client.start()
+            with client:
+                client.order().connection().destroy().__communicate__()
+        except ConnectionRefusedError:
+            pass
+
+    def _prevent_autoclose(self):
+        self.prevent_autoclose = False
+        client = baseclient.Connection(self.host, self.port)
+        try:
+            client.start()
+        except ConnectionRefusedError:
+            self.start()
+        try:
+            with client:
+                client.order().autoclose().value("skip!").cancel("force").__communicate__()
+                client.order().connection().destroy().__communicate__()
+        except ConnectionRefusedError:
+            self.start()
+
+    def start(self):
+        try:
+            with self.Reg() as reg:
+                _set_to_reg(self.session_name, reg, [self.host, self.port])
+                socket = _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM)
+                socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
+                socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEPORT, 1)
+                socket.bind((self.host, self.port))
+                server = self.Server(socket, self.threads, self.connections_per_thread)
+        except _Exit:
+            if self.prevent_autoclose:
+                self._prevent_autoclose()
+            raise
+        else:
+            if self.check_autoclose:
+                threading.Thread(target=self._check_autoclose).start()
             print("ws://%s:%d" % (self.host, self.port))
-            return server
+            try:
+                server.run()
+            finally:
+                self._flush()
 
     def _flush(self):
         with self.Reg() as reg:
@@ -91,12 +133,22 @@ def _main():
             case argp.DStart.name:
                 argp.DStart(argp.PARSER)
                 args = argp.PARSER.parse_args()
+                if args.detach:
+                    sys.argv[0] = _dir
+                    sys.argv.remove("--detach")
+                    subprocess.Popen(
+                        [sys.executable, __file__] + sys.argv,
+                        stdout=sys.stdout, stderr=sys.stderr
+                    )
+                    return 0
                 _service = _ServiceConf()
                 _service.session_name = args.name
                 _service.host = args.host
                 _service.port = args.port
                 _service.threads = args.threads
                 _service.connections_per_thread = args.cpt
+                _service.prevent_autoclose = args.prevent_autoclose
+                _service.check_autoclose = args.check_autoclose
                 if args.derivative:
                     spec = importlib.util.spec_from_file_location("", args.derivative)
                     service = importlib.util.module_from_spec(spec)
@@ -124,8 +176,10 @@ def _main():
                     with client:
                         pong = client.order().ping().__communicate__()
                         print(pong)
-                        client.order().autoclose().value("skip!").__communicate__()
-                        client.order().connection().destroy().__communicate__()
+                        client.communicate([
+                            client.order().autoclose().value("skip!"),
+                            client.order().connection().destroy()
+                        ])
             case argp.DRegistry.name:
                 argp.DRegistry(argp.PARSER)
                 args = argp.PARSER.parse_args()
@@ -139,6 +193,8 @@ def _main():
                 elif args.force_flush:
                     with servreg.ServiceReg() as reg:
                         reg.clear()
+                elif args.auto_flush:
+                    session_reg_auto_flush()
                 elif args.all:
                     with servreg.ServiceReg() as reg:
                         print(json.dumps(reg, indent=4, sort_keys=True))
@@ -166,3 +222,25 @@ def _main():
 def get_session_reg() -> dict[str, list[str, int]]:
     with servreg.ServiceReg() as reg:
         return reg
+
+
+def session_reg_auto_flush() -> dict[str, list[str, int]]:
+    flush = dict()
+    with servreg.ServiceReg() as reg:
+        for name, addr in reg.copy().items():
+            try:
+                client = baseclient.Connection(*addr)
+                client.start()
+                with client:
+                    client.communicate([
+                        client.order().autoclose().value("skip!"),
+                        client.order().connection().destroy()
+                    ])
+            except ConnectionRefusedError:
+                flush[name] = reg.pop(name)
+    return flush
+
+
+if __name__ == '__main__':
+    _ServiceConf._detached = True
+    _main()

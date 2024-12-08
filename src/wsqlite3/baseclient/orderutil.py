@@ -312,8 +312,8 @@ class _OSecAutoclose(_OrderSection):
     def __init__(self, parent: _OrderSection):
         super().__init__("autoclose", parent)
 
-    def cancel(self):
-        return self._instruction("cancel", True)
+    def cancel(self, mode: Literal["cancel", "explicit not", "force"] = "cancel"):
+        return self._instruction("cancel", {"cancel": 1, "explicit not": -1, "force": 2}[mode])
 
     def value(self, val: Literal["block", "request"]):
         return self._instruction("value", val)
@@ -363,7 +363,7 @@ class _Error(Exception):
 
     def raise_origin(self):
         if self.pypickle:
-            raise pickle.loads(eval(self.pypickle))
+            raise pickle.loads(eval(self.pypickle)) from self
         else:
             raise self
 
@@ -445,9 +445,3 @@ class Order(_OrderSection):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.__communicate__()
-
-
-###################################################################################################################
-
-
-###################################################################################################################

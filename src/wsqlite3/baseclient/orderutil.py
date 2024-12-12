@@ -246,11 +246,11 @@ class _OSecSql(_OrderSection):
 
     @overload
     def exec(self, sql: str, *, params: Sequence | Mapping = ()):
-        ...
+        return self
 
     @overload
     def exec(self, sql: str, *, tb_params: Sequence | Mapping = ()):
-        ...
+        return self
 
     def exec(self, sql: str, **__params: Sequence | Mapping):
         self._pop("script", None)
@@ -263,11 +263,11 @@ class _OSecSql(_OrderSection):
 
     @overload
     def many(self, sql: str, *, params: Sequence | Mapping):
-        ...
+        return self
 
     @overload
     def many(self, sql: str, *, tb_params: Sequence | Mapping):
-        ...
+        return self
 
     def many(self, sql: str, **__params: Sequence[Sequence | Mapping]):
         self._pop("exec", None)

@@ -75,6 +75,7 @@ class DStop(_Dir):
     epilog = " "
 
     def add_args(self):
+        self.parser.add_argument("--all", action="store_true", default=False, help="stop all registered services")
         self.parser.add_argument("--name", type=str, default="", help="registry name")
         self.parser.add_argument("--force", action="store_true", default=False, help="force shutdown")
         self.parser.add_argument("--commit", action="store_true", default=False, help="commit databases before shutdown")

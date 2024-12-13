@@ -21,7 +21,7 @@ PARSER.epilog = ""
 
 
 class _Dir:
-    name: str = ""
+    name: str | tuple[str, ...] = ""
     description: str = ""
     epilog: str = ""
 
@@ -40,18 +40,18 @@ class _Dir:
 
     @classmethod
     def as_group(cls, parser: argparse.ArgumentParser):
-        return cls(parser.add_argument_group(cls.name, cls.description))
+        return cls(parser.add_argument_group(str("|").join(cls.name), cls.description))
 
     def make_usage(self):
         usage = self.parser.format_usage()
-        self.parser.usage = "wsqlite3 " + self.name + usage[15:]
+        self.parser.usage = "wsqlite3 " + str("|").join(self.name) + usage[15:]
 
     def __eq__(self, other):
         return other == self.name
 
 
 class DStart(_Dir):
-    name = "start"
+    name = ("start", "on")
     description = "start the service"
     epilog = "a non detached process can be terminated by ctrl+c (depending on the version of asyncio a second SIGINT signal may be necessary)"
 
@@ -70,7 +70,7 @@ class DStart(_Dir):
 
 
 class DStop(_Dir):
-    name = "stop"
+    name = ("stop", "off")
     description = "stop the service under registry name and exit"
     epilog = " "
 
@@ -82,7 +82,7 @@ class DStop(_Dir):
 
 
 class DPing(_Dir):
-    name = "ping"
+    name = ("ping",)
     description = "ping the service under registry name and exit"
     epilog = " "
 
@@ -91,7 +91,7 @@ class DPing(_Dir):
 
 
 class DRegistry(_Dir):
-    name = "registry"
+    name = ("registry", "reg")
     description = "output the current service registry to stdout and exit"
     epilog = " "
 
@@ -104,7 +104,7 @@ class DRegistry(_Dir):
 
 
 class DHelp(_Dir):
-    name = "help"
+    name = ("help", "h")
     description = "show this help message and exit"
     epilog = " "
 
@@ -113,7 +113,7 @@ class DHelp(_Dir):
 
 
 class DVersion(_Dir):
-    name = "version"
+    name = ("version", "ver", "v")
     description = "output the version to stdout and exit"
     epilog = " "
 

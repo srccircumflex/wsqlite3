@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import atexit
 import importlib.util
 import json
 import socket as _socket
@@ -129,18 +128,23 @@ class _ServiceConf:
 
 def _main():
     try:
-        match _dir := sys.argv.pop(1):
-            case argp.DStart.name:
-                argp.DStart(argp.PARSER)
-                args = argp.PARSER.parse_args()
-                if args.detach:
-                    sys.argv[0] = _dir
-                    sys.argv.remove("--detach")
-                    subprocess.Popen(
-                        [sys.executable, __file__] + sys.argv,
-                        stdout=sys.stdout, stderr=sys.stderr
-                    )
+        _dir = sys.argv.pop(1)
+        if _dir in argp.DStart.name:
+            argp.DStart(argp.PARSER)
+            args = argp.PARSER.parse_args()
+            if args.detach:
+                sys.argv[0] = _dir
+                sys.argv.remove("--detach")
+                p = subprocess.Popen(
+                    [sys.executable, __file__] + sys.argv,
+                    stderr=subprocess.PIPE
+                )
+                try:
+                    print(p.communicate(timeout=.2)[1].decode(), end="", file=sys.stderr, flush=True)
+                    return 1
+                except subprocess.TimeoutExpired:
                     return 0
+            else:
                 _service = _ServiceConf()
                 _service.session_name = args.name
                 _service.host = args.host
@@ -159,54 +163,61 @@ def _main():
                 elif args.verbose:
                     _service.Server = verbose_service.VerboseServer
                 _service.start()
-            case argp.DStop.name:
-                argp.DStop(argp.PARSER)
-                args = argp.PARSER.parse_args()
+        elif _dir in argp.DStop.name:
+            argp.DStop(argp.PARSER)
+            args = argp.PARSER.parse_args()
+            if args.all:
+                for addr in get_session_reg().values():
+                    client = baseclient.Connection(*addr)
+                    client.start()
+                    with client:
+                        client.order().server().shutdown(args.force, args.commit).__communicate__()
+            else:
                 with servreg.ServiceReg() as reg:
                     client = baseclient.Connection(*_get_from_reg(args.name, reg))
                     client.start()
                     with client:
                         client.order().server().shutdown(args.force, args.commit).__communicate__()
-            case argp.DPing.name:
-                argp.DPing(argp.PARSER)
-                args = argp.PARSER.parse_args()
+        elif _dir in argp.DPing.name:
+            argp.DPing(argp.PARSER)
+            args = argp.PARSER.parse_args()
+            with servreg.ServiceReg() as reg:
+                client = baseclient.Connection(*_get_from_reg(args.name, reg))
+                client.start()
+                with client:
+                    pong = client.order().ping().__communicate__()
+                    print(pong)
+                    client.communicate([
+                        client.order().autoclose().value("skip!"),
+                        client.order().connection().destroy()
+                    ])
+        elif _dir in argp.DRegistry.name:
+            argp.DRegistry(argp.PARSER)
+            args = argp.PARSER.parse_args()
+            if args.force_flush:
+                reg = servreg.ServiceReg()
+                reg._lock_release()
+                with reg as reg:
+                    reg.clear()
+            elif args.get_file:
+                print(servreg.ServiceReg.file)
+            elif args.force_flush:
                 with servreg.ServiceReg() as reg:
-                    client = baseclient.Connection(*_get_from_reg(args.name, reg))
-                    client.start()
-                    with client:
-                        pong = client.order().ping().__communicate__()
-                        print(pong)
-                        client.communicate([
-                            client.order().autoclose().value("skip!"),
-                            client.order().connection().destroy()
-                        ])
-            case argp.DRegistry.name:
-                argp.DRegistry(argp.PARSER)
-                args = argp.PARSER.parse_args()
-                if args.force_flush:
-                    reg = servreg.ServiceReg()
-                    reg._lock_release()
-                    with reg as reg:
-                        reg.clear()
-                elif args.get_file:
-                    print(servreg.ServiceReg.file)
-                elif args.force_flush:
-                    with servreg.ServiceReg() as reg:
-                        reg.clear()
-                elif args.auto_flush:
-                    session_reg_auto_flush()
-                elif args.all:
-                    with servreg.ServiceReg() as reg:
-                        print(json.dumps(reg, indent=4, sort_keys=True))
-                else:
-                    with servreg.ServiceReg() as reg:
-                        print("%s:%d" % tuple(_get_from_reg(args.name, reg)))
-            case argp.DVersion.name:
-                argp.DVersion(argp.PARSER)
-                argp.PARSER.parse_args()
-                print(__version__)
-            case _:
-                raise IndexError
+                    reg.clear()
+            elif args.auto_flush:
+                session_reg_auto_flush()
+            elif args.all:
+                with servreg.ServiceReg() as reg:
+                    print(json.dumps(reg, indent=4, sort_keys=True))
+            else:
+                with servreg.ServiceReg() as reg:
+                    print("%s:%d" % tuple(_get_from_reg(args.name, reg)))
+        elif _dir in argp.DVersion.name:
+            argp.DVersion(argp.PARSER)
+            argp.PARSER.parse_args()
+            print(__version__)
+        else:
+            raise IndexError
     except IndexError:
         sys.argv.insert(1, "-h")
         argp.HelpAll()

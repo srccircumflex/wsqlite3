@@ -1289,6 +1289,7 @@ class ConnectionsThread(threading.Thread, ConnectionWorker):
         self.async_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.async_loop)
         self.async_loop.run_forever()
+        self.async_loop.run_until_complete(self.async_loop.shutdown_asyncgens())
 
     async def add_conn(self, sock: _socket.socket, addr: tuple[str, int]) -> None:
         """Add a connection to this thread."""

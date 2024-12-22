@@ -1625,7 +1625,7 @@ class Server(threading.Thread):
                 sock.connect(self.address)
         except Exception as e:
             _FATAL_ERROR_HANDLE(self, "", e, "shutdown @ connecting to own socket")
-        for task in asyncio.all_tasks():
+        for task in asyncio.all_tasks(self.async_loop):
             task.cancel()
         try:
             self.socket.close()

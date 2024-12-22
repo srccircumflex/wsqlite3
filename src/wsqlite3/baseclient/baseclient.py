@@ -139,7 +139,7 @@ class Connection(threading.Thread):
                     obj[i] = order.__root__
         elif isinstance(obj, orderutil._OrderSection) and not isinstance(obj, orderutil.Order):
             obj = obj.__root__
-        self.sock.send(
+        self.sock.sendall(
             wsdatautil.Frame(
                 self.serialize_output(obj),
                 wsdatautil.OPCODES.BINARY,

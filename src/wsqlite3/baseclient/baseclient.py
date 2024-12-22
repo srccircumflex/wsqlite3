@@ -99,7 +99,7 @@ class Connection(threading.Thread):
         try:
             return self.connect()
         except OSError as e:
-            if e.errno != 106:
+            if e.errno != errno.EISCONN:  # Transport endpoint is already connected
                 raise
 
     def run(self):

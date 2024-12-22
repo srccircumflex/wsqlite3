@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import concurrent.futures
+import errno
 import json
 import pickle
 import socket as _socket
@@ -1287,7 +1288,6 @@ class ConnectionsThread(threading.Thread, ConnectionWorker):
             "TID": self.native_id,
         }
         self.async_loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.async_loop)
         self.async_loop.run_forever()
         self.async_loop.run_until_complete(self.async_loop.shutdown_asyncgens())
 
@@ -1579,7 +1579,13 @@ class Server(threading.Thread):
 
     def run(self) -> None:
         """asyncio.run(self.serve())"""
-        return asyncio.run(self.serve())
+        try:
+            return asyncio.run(self.serve())
+        except asyncio.CancelledError:
+            pass
+        except OSError as e:
+            if e.errno != errno.EBADF:  # Bad file descriptor
+                raise
 
     def start(self, wait_iterations: int | bool = False, wait_time: float = .001):
         super().start()

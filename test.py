@@ -338,7 +338,7 @@ class TestOrders(unittest.TestCase):
             client1.order().server().shutdown().__communicate__(False)
 
     def test_server(self):
-        port = 9999
+        port = 10999
         server = wsqlite3.verbose_service.DebugServer(("localhost", port), threads=n_threads)
         server.start(wait_iterations=True)
 

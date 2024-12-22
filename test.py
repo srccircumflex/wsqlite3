@@ -715,7 +715,7 @@ class TestConcurrency(unittest.TestCase):
             for order in orders:
                 sleep()
                 client.send_obj(order)
-            client.send_obj(client.order(flag=True).connection().description_get())
+            client.send_obj(client.order(flag=True).connection().description())
 
             while True:
                 res = client.recv_obj()

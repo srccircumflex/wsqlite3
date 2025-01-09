@@ -3,4 +3,4 @@ from . import verbose_service
 from . import baseclient
 
 
-__version__ = "0.6"
+__version__ = "0.6.1"

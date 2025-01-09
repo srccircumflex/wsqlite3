@@ -114,7 +114,7 @@ class _ServiceConf:
             raise
         else:
             if self.check_autoclose:
-                threading.Thread(target=self._check_autoclose).start()
+                threading.Thread(target=self._check_autoclose, daemon=True).start()
             print("ws://%s:%d" % (self.host, self.port))
             try:
                 server.run()

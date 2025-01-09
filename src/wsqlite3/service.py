@@ -550,7 +550,7 @@ class Operator:
     async def proc_order__broadcast(self, order: dict, res: dict):
         try:
             msg = order.pop("message")
-            await self.server.broadcast(self.serialize_output(
+            self.server.broadcast(self.serialize_output(
                 {
                     "broadcast": msg,
                     "from": self.current_connection.id,
@@ -1148,7 +1148,7 @@ class Connection(ConnectionWorker):
 
     async def at_ws_close(self, frame: wsdatautil.Frame) -> None:
         """Executed with a received close-frame. By default, ``WsClose`` is raised, which closes the connection."""
-        # code, msg = wsdatautil.get_close_code_and_messagefrom__frame(frame)
+        # code, msg = wsdatautil.get_close_code_and_message_from_frame(frame)
         raise self.CloseSignal
 
     async def at_ws_ping(self, frame: wsdatautil.Frame) -> None:
@@ -1289,9 +1289,8 @@ class ConnectionsThread(threading.Thread, ConnectionWorker):
         }
         self.async_loop = asyncio.new_event_loop()
         self.async_loop.run_forever()
-        self.async_loop.run_until_complete(self.async_loop.shutdown_asyncgens())
 
-    async def add_conn(self, sock: _socket.socket, addr: tuple[str, int]) -> None:
+    def add_conn(self, sock: _socket.socket, addr: tuple[str, int]) -> None:
         """Add a connection to this thread."""
         self.connections.add(
             conn := self.server.factory_Connection(
@@ -1315,11 +1314,15 @@ class ConnectionsThread(threading.Thread, ConnectionWorker):
 
     def destroy(self, force: bool = False, _skip_conn_locks: set[Connection] = ()) -> None:
         """close all connections of the thread and stop the async loop"""
+        self.async_loop.shutdown_asyncgens()
         for task in asyncio.all_tasks(self.async_loop):
             task.cancel()
+        _l_connections = len(self.connections)
         for conn in self.connections.copy():
             conn.destroy(force, _skip_conn_locks)
-        self.async_loop.call_soon_threadsafe(self.async_loop.stop, )  # type-hint-bug: Unpack[_Ts]
+        self.async_loop.stop()
+        for i in range(_l_connections * 2):
+            asyncio.run_coroutine_threadsafe(asyncio.sleep(.001), self.async_loop)
 
 
 @dataclass
@@ -1355,8 +1358,7 @@ class Server(threading.Thread):
     socket: _socket.socket
     address: tuple[str, int]
     threads: set[ConnectionsThread]
-    _conn_req_: Callable[[_socket.socket, tuple[str, int]], None | Coroutine]
-    async_loop: asyncio.AbstractEventLoop
+    _conn_req_: Callable[[_socket.socket, tuple[str, int]], None]
     _alive: bool = True
     factory_Connection: Callable[..., Connection] | Type[Connection]
     factory_Database: Callable[..., Database] | Type[Database]
@@ -1407,16 +1409,16 @@ class Server(threading.Thread):
             self.threads.add(ct)
 
         if connections_per_thread > 0:
-            async def _conn_req_(sock: _socket.socket, addr: tuple[str, int]):
+            def _conn_req_(sock: _socket.socket, addr: tuple[str, int]):
                 for ct in self.threads:
                     if len(ct.connections) < connections_per_thread:
-                        await ct.add_conn(sock, addr)
+                        ct.add_conn(sock, addr)
                         break
                 else:
                     sock.close()
         else:
-            async def _conn_req_(sock: _socket.socket, addr: tuple[str, int]):
-                await min(self.threads, key=lambda c: len(c.connections)).add_conn(sock, addr)
+            def _conn_req_(sock: _socket.socket, addr: tuple[str, int]):
+                min(self.threads, key=lambda c: len(c.connections)).add_conn(sock, addr)
 
         self._conn_req_ = _conn_req_
 
@@ -1563,22 +1565,20 @@ class Server(threading.Thread):
             else:
                 await close()
 
-    async def connection_request(self, sock: _socket.socket, addr: tuple[str, int]) -> None:
-        """process a connection request"""
-        await self._conn_req_(sock, addr)
+    def _connection_request(self, sock, addr):
+        self.connection_request(sock, addr)
 
-    async def serve(self) -> None:
-        """open the socket and run the mainloop"""
-        self.async_loop = asyncio.get_event_loop()
-        self.socket.listen()
-        with self.socket:
-            while self._alive:
-                await self.connection_request(*self.socket.accept())
+    def connection_request(self, sock: _socket.socket, addr: tuple[str, int]) -> None:
+        """process a connection request"""
+        self._conn_req_(sock, addr)
 
     def run(self) -> None:
-        """asyncio.run(self.serve())"""
+        """open the socket and run the mainloop"""
+        self.socket.listen()
         try:
-            return asyncio.run(self.serve())
+            with self.socket:
+                while self._alive:
+                    self._connection_request(*self.socket.accept())
         except asyncio.CancelledError:
             pass
         except OSError as e:
@@ -1590,7 +1590,7 @@ class Server(threading.Thread):
         if wait_iterations:
             for i in range((1000 if isinstance(wait_iterations, bool) else wait_iterations)):
                 try:
-                    if self.async_loop.is_running():
+                    if self.is_alive():
                         return
                 except AttributeError:
                     pass
@@ -1598,7 +1598,7 @@ class Server(threading.Thread):
             else:
                 raise TimeoutError
 
-    async def broadcast(self, payload: bytes, except_: Connection) -> None:
+    def broadcast(self, payload: bytes, except_: Connection) -> None:
         """Send `payload` to all connections [`except_` <connection.id>]."""
         if except_:
             for conn in self.all_connections:
@@ -1618,26 +1618,27 @@ class Server(threading.Thread):
             except Exception as e:
                 _FATAL_ERROR_HANDLE(self, "", e, f"shutdown @ close {sql}")
 
+        for thread in self.threads.copy():
+            thread.async_loop.set_debug(True)
+            try:
+                thread.destroy(force=force, _skip_conn_locks=_skip_conn_locks)
+            except Exception as e:
+                _FATAL_ERROR_HANDLE(self, "", e, f"shutdown @ destroy thread {thread.id}")
+
         self._alive = False
+        self.connection_request = self._cleanup
 
-        async def _conn_req_(*args):
-            pass
-
-        self._conn_req_ = _conn_req_
         try:
             with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as sock:
                 sock.settimeout(.1)
                 sock.connect(self.address)
         except Exception as e:
             _FATAL_ERROR_HANDLE(self, "", e, "shutdown @ connecting to own socket")
-        for task in asyncio.all_tasks(self.async_loop):
-            task.cancel()
         try:
             self.socket.close()
         except Exception as e:
             _FATAL_ERROR_HANDLE(self, "", e, "shutdown @ close socket")
-        for thread in self.threads.copy():
-            try:
-                thread.destroy(force=force, _skip_conn_locks=_skip_conn_locks)
-            except Exception as e:
-                _FATAL_ERROR_HANDLE(self, "", e, f"shutdown @ destroy thread {thread.id}")
+
+    def _cleanup(self, *_):
+        for thread in self.threads:
+            thread.join(1)

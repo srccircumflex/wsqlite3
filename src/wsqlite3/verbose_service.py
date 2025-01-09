@@ -84,9 +84,9 @@ class VerboseServer(Server):
     ):
         super().__init__(socket, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database)
 
-    async def connection_request(self, sock: _socket.socket, addr: tuple[str, int]):
+    def connection_request(self, sock: _socket.socket, addr: tuple[str, int]):
         log(self, "%s:%d" % addr, "connection request")
-        return await super().connection_request(sock, addr)
+        return super().connection_request(sock, addr)
 
     async def autoclose(self, from_: Connection, trigger: Connection, reason: str):
         log(self, trigger.id, f"autoclose: {from_=} {trigger=} {reason=}")

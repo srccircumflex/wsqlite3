@@ -1516,11 +1516,9 @@ class Server(threading.Thread):
         if trigger.autoclose_value & 0x100:
             return
 
-        all_connections = self.all_connections
-
         def _conn_value():
             __conn_value = 0
-            for conn in all_connections:
+            for conn in self.all_connections:
                 __conn_value |= conn.autoclose_value
             return __conn_value
 

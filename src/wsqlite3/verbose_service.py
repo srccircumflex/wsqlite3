@@ -1,112 +1,129 @@
 from __future__ import annotations
-from typing import Callable, Any, Literal
 
 import asyncio
 import json
+import logging
 import socket as _socket
-import time
 import traceback
+from typing import Callable, Any, Literal
 
 import wsdatautil
 
+from . import ServerConfig
 from .service import Server, Connection, Operator, ConnectionsThread, Database
 
 
-def log(server: Server, label: str, *message: object):
-    print("", end="", flush=True)
-    print(f"[{time.time():,.8f}] ({server.address[0]}:{server.address[1]}/{label})", *message, sep="\n  ", flush=True)
+def log(server: Server, lv: int, label: str, message: str): server.logger.log(lv, message, extra={"label": label})
 
 
-class VerboseOperator(Operator):
+class LogOperator(Operator):
 
     async def read_orders(self, order_root: dict, res_order: dict):
-        log(self.server, self.current_connection.id, "order:", json.dumps(order_root, sort_keys=True, indent=2))
+        log(self.server, logging.INFO, self.current_connection.id, "order: " + json.dumps(order_root, sort_keys=True, indent=2))
         return await super().read_orders(order_root, res_order)
 
     def exception_message_formatter(self, exc: Exception) -> Any:
-        log(self.server, self.current_connection.id, "order error:", str().join(traceback.format_exception(exc)))
         msg = super().exception_message_formatter(exc)
-        log(self.server, self.current_connection.id, "order exception message:", json.dumps(msg, sort_keys=True, indent=2))
+        log(self.server, logging.ERROR, self.current_connection.id, "order exception message: " + json.dumps(msg, sort_keys=True, indent=2))
         return msg
 
 
-class VerboseConnection(Connection):
+class LogConnection(Connection):
 
-    def __init__(self, server: Server, thread: ConnectionsThread | None, sock: _socket.socket, addr: tuple[str, int]):
-        super().__init__(server, thread, sock, addr)
-        log(self.server, "%s:%d" % addr, "connection accepted:", "uuid =", self.id)
+    def __init__(self, server: Server, thread: ConnectionsThread | None, sock: _socket.socket, addr: tuple[str, int], id: str):
+        super().__init__(server, thread, sock, addr, id)
+        log(self.server, logging.INFO, "%s:%d" % addr, "connection accepted: uid = " + self.id)
 
     async def ws_wait_handshake(self) -> wsdatautil.HandshakeRequest:
         hs = await super().ws_wait_handshake()
-        log(self.server, self.id, "ws.handshake:", hs)
+        log(self.server, logging.INFO, self.id, "ws.handshake: " + repr(hs))
         return hs
 
     async def read_one_frame(self) -> wsdatautil.Frame:
         fr = await super().read_one_frame()
-        log(self.server, self.id, "ws.frame:", fr)
+        log(self.server, logging.INFO, self.id, "ws.frame: " + repr(fr))
         return fr
 
     async def read_iteration(self):
-        log(self.server, self.id, "await input")
+        log(self.server, logging.INFO, self.id, "await input")
         return await super().read_iteration()
 
     def destroy(self, force: bool = False, _skip_conn_locks: set[Connection] = ()) -> bool:
-        log(self.server, self.id, "destroy")
+        log(self.server, logging.INFO, self.id, "destroy")
         return super().destroy(force=force, _skip_conn_locks=_skip_conn_locks)
 
     async def at_connection_broken(self, exc: asyncio.IncompleteReadError) -> None:
-        log(self.server, self.id, "connection broken:", str().join(traceback.format_exception(exc)))
+        log(self.server, logging.WARNING, self.id, f"connection broken: {self} partial read: {exc.partial} ({len(exc.partial)}/{exc.expected})")
         return await super().at_connection_broken(exc)
 
     async def at_unexpected_error(self, exc: Exception) -> bool:
-        log(self.server, self.id, "unexpected error:", str().join(traceback.format_exception(exc)))
+        log(self.server, logging.CRITICAL, self.id, "unexpected error: " + str().join(traceback.format_exception(exc)))
         return await super().at_unexpected_error(exc)
 
 
-class VerboseConnectionsThread(ConnectionsThread):
+class LogConnectionsThread(ConnectionsThread):
 
     def run(self) -> None:
         super().run()
-        log(self.server, f"t:{self.id}", "leave main loop")
+        log(self.server, logging.INFO, ".", "leave loop (connections-thread)")
 
 
-class VerboseServer(Server):
-
+class LogServer(Server):
     def __init__(
-            self,
-            socket: tuple[str, int] | _socket.socket,
+            self, socket: tuple[str, int] | _socket.socket,
             threads: int = 1,
             connections_per_thread: int = 0,
-            factory_Connection: Callable[..., Connection] = VerboseConnection,
-            factory_ConnectionsThread: Callable[..., ConnectionsThread] = VerboseConnectionsThread,
-            factory_Operator: Callable[..., Operator] = VerboseOperator,
+            factory_Connection: Callable[..., Connection] = LogConnection,
+            factory_ConnectionsThread: Callable[..., ConnectionsThread] = LogConnectionsThread,
+            factory_Operator: Callable[..., Operator] = LogOperator,
             factory_Database: Callable[..., Database] = Database,
+            config: ServerConfig = ServerConfig(),
+            logger: logging.Logger | None = None
     ):
-        super().__init__(socket, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database)
+        if logger is None:
+            from ._cli.logs import default_logger
+            logger = default_logger(self.__class__.__qualname__)
+        super().__init__(socket, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database, config, logger)
 
     def connection_request(self, sock: _socket.socket, addr: tuple[str, int]):
-        log(self, "%s:%d" % addr, "connection request")
+        log(self, logging.INFO, "%s:%d" % addr, "connection request")
         return super().connection_request(sock, addr)
 
     async def autoclose(self, from_: Connection, trigger: Connection, reason: str):
-        log(self, trigger.id, f"autoclose: {from_=} {trigger=} {reason=}")
+        log(self, logging.INFO, trigger.id, f"autoclose: {from_=} {trigger=} {reason=}")
         return await super().autoclose(from_, trigger, reason)
 
 
-class DebugOperator(VerboseOperator):
+class VerboseServer(LogServer):
 
     def __init__(
-            self, 
+            self, socket: tuple[str, int] | _socket.socket,
+            threads: int = 1,
+            connections_per_thread: int = 0,
+            factory_Connection: Callable[..., Connection] = LogConnection,
+            factory_ConnectionsThread: Callable[..., ConnectionsThread] = LogConnectionsThread,
+            factory_Operator: Callable[..., Operator] = LogOperator,
+            factory_Database: Callable[..., Database] = Database,
+            config: ServerConfig = ServerConfig(),
+            logger: logging.Logger | None = None
+    ):
+        super().__init__(socket, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database, config, logger)
+
+
+class DebugOperator(LogOperator):
+
+    def __init__(
+            self,
             connection: Connection,
             erract_unprocessed_fields: Literal[
-                "cancel order",
-                "cancel session",
-                "ignore",
-                "destroy connection",
-                "shutdown server",
-                "force shutdown server",
-                "... +rollback"
-            ] | str = "shutdown server"
+                                           "cancel order",
+                                           "cancel session",
+                                           "ignore",
+                                           "destroy connection",
+                                           "shutdown server",
+                                           "force shutdown server",
+                                           "... +rollback"
+                                       ] | str = "shutdown server"
     ):
         super().__init__(connection)
 
@@ -118,84 +135,91 @@ class DebugOperator(VerboseOperator):
 
         self.erract_unprocessed_fields = __erract_unprocessed_fields
 
+    def exception_message_formatter(self, exc: Exception) -> Any:
+        log(self.server, 5, self.current_connection.id, "order error: " + str().join(traceback.format_exception(exc)))
+        return super().exception_message_formatter(exc)
+
+    def _log(self, k: str, order: dict):
+        log(self.server, logging.DEBUG, self.current_connection.id, f"'{k}': " + json.dumps(order, sort_keys=True, indent=2))
+
     async def proc_order__ping(self, order: dict, res: dict):
-        log(self.server, self.current_connection.id, '"ping":', order)
+        self._log("ping", order)
         err = await super().proc_order__ping(order, res)
         order.pop("error", None)
         if order:
-            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self._log("unprocessed instructions:", order)
             self.erract_unprocessed_fields()
         return err
 
     async def proc_order___exec(self, order: dict, res: dict):
-        log(self.server, self.current_connection.id, '"_exec":', order)
+        self._log("_exec", order)
         err = await super().proc_order___exec(order, res)
         order.pop("error", None)
         if order:
-            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self._log("unprocessed instructions:", order)
             self.erract_unprocessed_fields()
         return err
 
     async def proc_order___getattr(self, order: dict, res: dict):
-        log(self.server, self.current_connection.id, '"_getattr":', order)
+        self._log("_getattr", order)
         err = await super().proc_order___getattr(order, res)
         order.pop("error", None)
         if order:
-            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self._log("unprocessed instructions:", order)
             self.erract_unprocessed_fields()
         return err
 
     async def proc_order__connection(self, order: dict, res: dict):
-        log(self.server, self.current_connection.id, '"connection":', order)
+        self._log("connection", order)
         err = await super().proc_order__connection(order, res)
         order.pop("error", None)
         if order:
-            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self._log("unprocessed instructions:", order)
             self.erract_unprocessed_fields()
         return err
 
     async def proc_order__server(self, order: dict, res: dict):
-        log(self.server, self.current_connection.id, '"server":', order)
+        self._log("server", order)
         err = await super().proc_order__server(order, res)
         order.pop("error", None)
         if order:
-            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self._log("unprocessed instructions:", order)
             self.erract_unprocessed_fields()
         return err
 
     async def proc_order__thread(self, order: dict, res: dict):
-        log(self.server, self.current_connection.id, '"thread":', order)
+        self._log("thread", order)
         err = await super().proc_order__thread(order, res)
         order.pop("error", None)
         if order:
-            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self._log("unprocessed instructions:", order)
             self.erract_unprocessed_fields()
         return err
 
     async def proc_order__sql(self, order: dict, res: dict):
-        log(self.server, self.current_connection.id, '"db":', order)
+        self._log("db", order)
         err = await super().proc_order__sql(order, res)
         order.pop("error", None)
         if order:
-            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self._log("unprocessed instructions:", order)
             self.erract_unprocessed_fields()
         return err
 
     async def proc_order__broadcast(self, order: dict, res: dict):
-        log(self.server, self.current_connection.id, '"broadcast":', order)
+        self._log("broadcast", order)
         err = await super().proc_order__broadcast(order, res)
         order.pop("error", None)
         if order:
-            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self._log("unprocessed instructions:", order)
             self.erract_unprocessed_fields()
         return err
 
     async def proc_order__autoclose(self, order: dict, res: dict):
-        log(self.server, self.current_connection.id, '"autoclose":', order)
+        self._log("autoclose", order)
         err = await super().proc_order__autoclose(order, res)
         order.pop("error", None)
         if order:
-            log(self.server, self.current_connection.id, "unprocessed instructions:", order)
+            self._log("unprocessed instructions:", order)
             self.erract_unprocessed_fields()
         return err
 
@@ -203,14 +227,15 @@ class DebugOperator(VerboseOperator):
 class DebugServer(VerboseServer):
 
     def __init__(
-            self,
-            socket: tuple[str, int] | _socket.socket,
+            self, socket: tuple[str, int] | _socket.socket,
             threads: int = 1,
             connections_per_thread: int = 0,
-            factory_Connection: Callable[..., Connection] = VerboseConnection,
-            factory_ConnectionsThread: Callable[..., ConnectionsThread] = VerboseConnectionsThread,
+            factory_Connection: Callable[..., Connection] = LogConnection,
+            factory_ConnectionsThread: Callable[..., ConnectionsThread] = LogConnectionsThread,
             factory_Operator: Callable[..., Operator] = DebugOperator,
             factory_Database: Callable[..., Database] = Database,
+            config: ServerConfig = ServerConfig(),
+            logger: logging.Logger | None = None
     ):
         if not isinstance(socket, _socket.socket):
             address = socket
@@ -218,5 +243,4 @@ class DebugServer(VerboseServer):
             socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEADDR, 1)
             socket.setsockopt(_socket.SOL_SOCKET, _socket.SO_REUSEPORT, 1)
             socket.bind(address)
-        super().__init__(socket, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database)
-
+        super().__init__(socket, threads, connections_per_thread, factory_Connection, factory_ConnectionsThread, factory_Operator, factory_Database, config, logger)

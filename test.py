@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import base64
-import sys
 import pathlib
+import sys
 from warnings import filterwarnings
 
 try:
@@ -10,26 +10,16 @@ try:
 except Exception:
     raise
 
-import asyncio
-import json
 import queue
 import socket
 import sqlite3
 import threading
-from collections import OrderedDict
-from collections.abc import Sequence, Mapping, Iterable
-from http.client import responses
-from random import randbytes
-from traceback import format_exception
-from typing import Callable, Coroutine, Any, Generator, Literal, IO, Hashable
-from uuid import uuid4
+from typing import Callable
 import time
-import multiprocessing
 import random
 
 import unittest
 
-import wsdatautil
 from src import wsqlite3
 
 filterwarnings(
@@ -742,7 +732,7 @@ class TestConcurrency(unittest.TestCase):
         client.order().server().shutdown().__communicate__()
 
     def test_concurrency2(self):
-        port = 10003
+        port = 10004
         server = wsqlite3.verbose_service.DebugServer(("localhost", port), threads=n_threads)
         server.start(wait_iterations=True)
 

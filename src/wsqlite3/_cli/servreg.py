@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import atexit
 import json
 import os
 import pathlib
 import time
-from typing import Type
 
 try:
     from .. import service, verbose_service, baseclient, __version__
@@ -20,7 +18,7 @@ class ServiceReg:
 
     file: pathlib.Path = LIB_ROOT / "service-sessions.json"
     lock: pathlib.Path = LIB_ROOT / "service-sessions.lock"
-    json: dict
+    json: dict[str, list[int, str, int]]
 
     wait_lock_timeout: tuple[int, float] = (1000, .001)
 
@@ -44,7 +42,7 @@ class ServiceReg:
             self.json = json.load(f)
         return self.json
 
-    def __enter__(self) -> dict:
+    def __enter__(self) -> dict[str, list[int, str, int]]:
         iterations, timeout = self.wait_lock_timeout
         for i in range(iterations):
             if self.lock.exists():

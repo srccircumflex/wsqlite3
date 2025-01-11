@@ -5,7 +5,7 @@ from src.wsqlite3.verbose_service import VerboseServer, DebugServer, Server
 addr = ("localhost", 8881)
 
 server = DebugServer(
-    *addr,
+    addr,
     threads=0,
     connections_per_thread=0
 )

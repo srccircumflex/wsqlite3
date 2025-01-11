@@ -40,18 +40,15 @@ filterwarnings(
 
 def _FATAL_ERROR_HANDLE(server: Server, label: str, exc: Exception, msg: str = ""):
     print(flush=True, file=sys.stderr)
-    msg = f"""\x1b[1m\x1b[31m>>>\x1b[0m
-{str("").join(format_exception(exc))}
-\x1b[1m[{asctime()}] ({server.address[0]}:{server.address[1]}/{label}) {msg}
-\x1b[31m<<<\x1b[0m"""
+    tb = str("").join(format_exception(exc))
     if server.logger is not None:
         server.logger.critical(f"""\x1b[1m\x1b[31m>>>\x1b[0m
-{str("").join(format_exception(exc))}
-{msg}
+{tb}
+{msg} 
 \x1b[31m<<<\x1b[0m""", extra={"label": f"{server.address[0]}:{server.address[1]}/{label}"})
     else:
         print(f"""\x1b[1m\x1b[31m>>>\x1b[0m
-{str("").join(format_exception(exc))}
+{tb}
 \x1b[1m[{asctime()}] ({server.address[0]}:{server.address[1]}/{label}) {msg}
 \x1b[31m<<<\x1b[0m""",
               file=sys.stderr)
@@ -1683,6 +1680,8 @@ class Server(threading.Thread):
         except OSError as e:
             if e.errno != errno.EBADF:  # Bad file descriptor
                 raise
+        except KeyboardInterrupt:
+            print()
         finally:
             if self._alive:  # shutdown not executed
                 # check if another thread executes shutdown
@@ -1691,8 +1690,8 @@ class Server(threading.Thread):
                         # something blocked hard -> terminate process
                         self._terminate()
                     elif self._alive:
-                        if self._shutdown():
-                            if self._shutdown(force=True):
+                        if self._shutdown(_sock_canceled=True):
+                            if self._shutdown(force=True, _sock_canceled=True):
                                 self._terminate()
                 finally:
                     self._t_lock.release()
@@ -1708,7 +1707,7 @@ class Server(threading.Thread):
             else:
                 raise TimeoutError
 
-    def _shutdown(self, force: bool = False, sql_commit: bool = False, _skip_conn_locks: set[Connection] = ()) -> Literal[0, 1]:
+    def _shutdown(self, force: bool = False, sql_commit: bool = False, _skip_conn_locks: set[Connection] = (), _sock_canceled: bool = False) -> Literal[0, 1]:
         """Close all connections and shut down the server.
         Do not wait for lock's if `force` is ``True``.
 
@@ -1731,16 +1730,21 @@ class Server(threading.Thread):
         self._alive = False
         self.connection_request = self._cleanup
 
-        try:
-            with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as sock:
-                sock.settimeout(.1)
-                sock.connect(self.address)
-        except Exception as err:
-            _FATAL_ERROR_HANDLE(self, "", err, "shutdown @ connecting to own socket")
+        if not _sock_canceled:
+            try:
+                with _socket.socket(_socket.AF_INET, _socket.SOCK_STREAM) as sock:
+                    sock.settimeout(.1)
+                    sock.connect(self.address)
+            except Exception as err:
+                _FATAL_ERROR_HANDLE(self, "", err, "shutdown @ connecting to own socket")
+
         try:
             self.socket.close()
         except Exception as err:
             _FATAL_ERROR_HANDLE(self, "", err, "shutdown @ close socket")
+
+        if _sock_canceled:
+            self._cleanup()
 
         self._alive = bool(err)
         return 1 if err else 0

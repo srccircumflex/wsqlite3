@@ -8,7 +8,7 @@ import aioconsole
 import wsdatautil
 
 ws_stream_reader = wsdatautil.ProgressiveStreamReader("auto")
-addr = ("127.255.11.13", 9998)
+addr = ("localhost", 8881)
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.connect(addr)
 

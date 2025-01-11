@@ -93,6 +93,10 @@ class LogServer(Server):
         log(self, logging.INFO, trigger.id, f"autoclose: {from_=} {trigger=} {reason=}")
         return await super().autoclose(from_, trigger, reason)
 
+    def _cleanup(self, *_):
+        log(self, logging.INFO, ".", "cleanup...")
+        super()._cleanup(*_)
+
 
 class VerboseServer(LogServer):
 

@@ -21,6 +21,8 @@ from warnings import filterwarnings
 
 import wsdatautil
 
+_ASYNCLOOP_SET_DEBUG: bool = False
+
 filterwarnings(
     'ignore',
     message=r'^coroutine .* was never awaited$',
@@ -1288,6 +1290,7 @@ class ConnectionsThread(threading.Thread, ConnectionWorker):
             "TID": self.native_id,
         }
         self.async_loop = asyncio.new_event_loop()
+        self.async_loop.set_debug(_ASYNCLOOP_SET_DEBUG)
         self.async_loop.run_forever()
 
     def add_conn(self, sock: _socket.socket, addr: tuple[str, int]) -> None:

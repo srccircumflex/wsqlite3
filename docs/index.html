@@ -382,13 +382,18 @@
         <div style="display:inline-block">
           <h1 id="wsqlite3">
             <span style="color:#266ed9">W</span><span style="border-bottom:1px solid #266ed9"><span style="color:#266ed9">S</span><span>QL</span><span>ite3</span></span>
-            <code>(v0.6 under development)</code>
+            <code>(v0.7 under development)</code>
           </h1>
         </div>
       </div>
       <div style="padding-left: 30px;border-left: 3px solid #d92661;background: #d9262654;">
         <p>
           versions <b><0.5</b> are <b>dysfunctional</b>
+        </p>
+      </div>
+      <div style="padding-left: 30px;border-left: 3px solid #d92661;background: #d9262654;">
+        <p>
+          versions <b><0.7</b> contains <b>unclean thread management</b>, which can cause zombie processes
         </p>
       </div>
       <p>
@@ -437,7 +442,8 @@
       </article>
       <div style="padding-left: 30px;border-left: 3px solid #d9c526;font-style: italic;">
         <p>
-          since 0.5
+          since 0.5,
+          <span style="background: #d9262654;">extensive upgrades since version 0.7</span>
         </p>
       </div>
 
@@ -450,6 +456,22 @@
         <tr><td><cite>Order</cite></td><td>refers to incoming order JSONs that are processed on the <o_server></o_server> side and outgoing order JSONs</td></tr>
         </tbody>
       </table>
+      <p></p>
+      <h3 id="project-wordings-identifications">Identifications</h3>
+      <table>
+        <tbody>
+        <tr><td><cite>wsqlite3uid</cite></td><td>for the identification of <b><cite>Connection</cite></b>'s and <b>database</b> operations.
+          Follows the scheme:
+          <article class="markdown-body"><code>&lt;hex(seconds since the Epoch)&gt;-&lt;hex(pid|tid)&gt;#&lt;hex(instance counter)&gt;</code></article>
+          (<code>tid</code> is used in almost all systems for the middle segment)
+        </td></tr>
+        <tr><td><cite>wsqlite3threadName</cite></td><td>for the identification of <b>ConnectionsThread</b>'s.
+          Follows the scheme:
+          <article class="markdown-body"><code>t&lt;n&gt;</code></article>
+        </td></tr>
+        </tbody>
+      </table>
+
       <p></p>
 
       <h2 id="the-service-module">The service module</h2>
@@ -632,9 +654,9 @@ server &gt;&gt; <span class="token punctuation">{</span>
           <details class="__l1">
             <summary>
               <span>
-                <span class="__input-field">"get"</span>: <t_str>(uuid)</t_str> | <t_dict>description record, ...</t_dict>
+                <span class="__input-field">"get"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3-uid</a>)</t_str> | <t_dict>description record, ...</t_dict>
                 [ <span class="__input-field">"set"</span>: <t_str>("session"|"response")</t_str> | <t_truthy></t_truthy> ],
-                <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(uuid)</t_str>,
+                <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3uid</a>)</t_str>,
                 <span class="__input-field">"send"</span>: <t_ser></t_ser>,
                 <span class="__input-field">"description"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_dict>description record, ...</t_dict>,
                 <span class="__input-field">"description.pop"</span>: <t_any>(key)</t_any> –&gt; <span class="__response-field">"description.pop"</span>: <t_any>(value)</t_any>,
@@ -645,7 +667,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
                 <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
               </span>
             </summary>
-            <span class="__input-field">"get"</span>: <t_str>(uuid)</t_str> | <t_dict>description record, ...</t_dict>
+            <span class="__input-field">"get"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3uid</a>)</t_str> | <t_dict>description record, ...</t_dict>
             <span class="__input-field">"set"</span>: <t_truthy></t_truthy> | <t_str>("session"|"response")</t_str>
             <p></p>
             <p>
@@ -664,7 +686,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
               </tbody>
             </table>
             <p></p>
-            <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(uuid)</t_str>
+            <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3uid</a>)</t_str>
             <p></p><p>Query the id of the current connection.</p>
             <span class="__input-field">"send"</span>: <t_ser></t_ser>
             <p></p><p>Send to the client of the current connection.</p>
@@ -678,7 +700,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
             <p>Query the properties of the current connection:</p>
             <article class="markdown-body">
 <pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
-  <span class="token property">"id"</span><span class="token operator">:</span> &lt;uuid&gt;<span class="token punctuation">,</span>
+  <span class="token property">"id"</span><span class="token operator">:</span> &lt;<a href="#project-wordings-identifications">wsqlite3uid</a>&gt;<span class="token punctuation">,</span>
   <span class="token property">"description"</span><span class="token operator">:</span> &lt;description&gt;<span class="token punctuation">,</span>
   <span class="token property">"timestamp"</span><span class="token operator">:</span> &lt;creation time&gt;<span class="token punctuation">,</span>
   <span class="token property">"address"</span><span class="token operator">:</span> &lt;client socket (host<span class="token punctuation">,</span> port)&gt;<span class="token punctuation">,</span>
@@ -729,22 +751,22 @@ server &gt;&gt; <span class="token punctuation">{</span>
           <details class="__l1">
             <summary>
               <span>
-                <span class="__input-field">"get"</span>: <t_str>(uuid)</t_str>,
-                <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(uuid)</t_str>,
+                <span class="__input-field">"get"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3threadName</a>)</t_str>,
+                <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3threadName</a>)</t_str>,
                 <span class="__input-field">"broadcast"</span>: <t_ser></t_ser> <span class="__input-field">"broadcast.self"</span>: <t_truthy></t_truthy>,
                 <span class="__input-field">"connections"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"connections"</span>: <t_dict>connection.id: <t_dict>connection.properties</t_dict>, ...</t_dict>,
                 <span class="__input-field">"properties"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"properties"</span>: <t_dict>properties</t_dict>,
                 <span class="__error-handling-field"><a href="#error-handling"><span class="__input-field">"error"</span>, <span class="__response-field">"error"</span></a></span>
               </span>
             </summary>
-            <span class="__input-field">"get"</span>: <t_str>(uuid)</t_str>
+            <span class="__input-field">"get"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3threadName</a>)</t_str>
             <p></p>
             <p>
               Via <span class="__input-field">"get"</span> a specific <o_thread></o_thread> object can be obtained.
               In the following, all instructions in the section refer to the thread received.
               If no thread is found via the id, an IdError is raised.
             </p>
-            <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(uuid)</t_str>
+            <span class="__input-field">"id"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"id"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3threadName</a>)</t_str>
             <p></p><p>Query the id of the current <o_thread></o_thread>.</p>
             <span class="__input-field">"broadcast"</span>: <t_ser></t_ser>
             <span class="__input-field">"broadcast.self"</span>: <t_truthy></t_truthy>
@@ -756,7 +778,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
             <article class="markdown-body">
 <pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
   <span class="token property">"broadcast"</span><span class="token operator">:</span> &lt;<t_ser></t_ser>&gt;<span class="token punctuation">,</span>
-  <span class="token property">"from"</span><span class="token operator">:</span> &lt;uuid&gt;
+  <span class="token property">"from"</span><span class="token operator">:</span> &lt;<a href="#project-wordings-identifications">wsqlite3threadName</a>&gt;
 <span class="token punctuation">}</span></code></pre>
             </article>
             <span class="__input-field">"connections"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"connections"</span>: <t_dict>connection.id: <t_dict>connection.properties</t_dict>, ...</t_dict>
@@ -771,7 +793,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
             <p></p><p>Query the properties of the current <o_thread></o_thread>:</p>
             <article class="markdown-body">
 <pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
-  <span class="token property">"id"</span><span class="token operator">:</span> &lt;uuid&gt;<span class="token punctuation">,</span>
+  <span class="token property">"id"</span><span class="token operator">:</span> &lt;<a href="#project-wordings-identifications">wsqlite3threadName</a>&gt;<span class="token punctuation">,</span>
   <span class="token property">"timestamp"</span><span class="token operator">:</span> &lt;start time&gt;<span class="token punctuation">,</span>
   <span class="token property">"thread.ident"</span><span class="token operator">:</span> &lt;<a href="https://docs.python.org/3.10/library/threading.html#threading.Thread.ident" target="_blank">thread.ident</a>&gt;<span class="token punctuation">,</span>
   <span class="token property">"TID"</span><span class="token operator">:</span> &lt;<a href="https://docs.python.org/3.10/library/threading.html#threading.Thread.native_id" target="_blank">thread.native_id</a>&gt;<span class="token punctuation">,</span>
@@ -793,7 +815,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
                 *<span class="__input-field">"force"</span>: <t_truthy></t_truthy>
                 *<span class="__input-field">"sudo"</span>: <t_truthy></t_truthy>;
 
-                <span class="__input-field">"lock"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"lock"</span>: <t_str>(uuid)</t_str> | <t_none></t_none>,
+                <span class="__input-field">"lock"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"lock"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3uid</a>)</t_str> | <t_none></t_none>,
 
                 <span class="__input-field">"arraysize"</span>: <t_bool>(True)</t_bool> | <t_int>(size)</t_int> –&gt; <span class="__response-field">"arraysize"</span>: <t_int>(size)</t_int>,
                 <span class="__input-field">"description"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"description"</span>: <t_list><t_list><t_str>(column name)</t_str>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none>, <t_none></t_none></t_list>, ...</t_list> | <t_none></t_none>,
@@ -837,7 +859,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
               <a href="https://docs.python.org/3/library/sqlite3.html#sqlite3.connect">sqlite3.connect</a>.
 
               An individual session key can be transferred via the <span class="__input-field">"get"</span> field,
-              otherwise an uuid is generated and returned in <span class="__response-field">"open"</span>. If the field
+              otherwise an <a href="#project-wordings-identifications">wsqlite3uid</a> is generated and returned in <span class="__response-field">"open"</span>. If the field
               is explicitly set to <t_none></t_none>, the database is set as the default database, which does not have
               to be retrieved via the <span class="__input-field">"get"</span> instruction in the future.
               Throws an ConfigurationError if the session key is already in use.
@@ -933,7 +955,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
             </table>
             <p></p>
 
-            <span class="__input-field">"lock"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"lock"</span>: <t_str>(uuid)</t_str> | <t_none></t_none>
+            <span class="__input-field">"lock"</span>: <t_truthy></t_truthy> –&gt; <span class="__response-field">"lock"</span>: <t_str>(<a href="#project-wordings-identifications">wsqlite3uid</a>)</t_str> | <t_none></t_none>
             <p></p><p>Query the id of the connection that locks the cursor.</p>
 
             <p></p>
@@ -1048,7 +1070,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
             <article class="markdown-body">
 <pre><code class="fenced-code-block language-json"><span class="token punctuation">{</span>
   <span class="token property">"broadcast"</span><span class="token operator">:</span> &lt;<t_ser></t_ser>&gt;<span class="token punctuation">,</span>
-  <span class="token property">"from"</span><span class="token operator">:</span> &lt;uuid&gt;
+  <span class="token property">"from"</span><span class="token operator">:</span> &lt;<a href="#project-wordings-identifications">wsqlite3uid</a>&gt;
 <span class="token punctuation">}</span></code></pre>
             </article>
           </details>
@@ -1074,7 +1096,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
             <div style="padding-left: 30px;border-left: 3px solid #d9c526;font-style: italic;">
               <p>
                 since 0.5,
-                <span style="background: #d9262654;">fix@0.6</span>
+                <span style="background: #d9262654;">fixes with 0.6</span>
               </p>
             </div>
 
@@ -1174,7 +1196,7 @@ server &gt;&gt; <span class="token punctuation">{</span>
       <div style="padding-left: 30px;border-left: 3px solid #d9c526;font-style: italic;">
         <p>
           since 0.5,
-          <span style="background: #d9262654;">fix@0.6</span>
+          <span style="background: #d9262654;">fixes with 0.6</span>
         </p>
       </div>
       <p>

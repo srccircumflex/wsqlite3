@@ -8,20 +8,9 @@
     <div style="display:inline-block">
       <h1>
         <span style="color:#266ed9">W</span><span style="border-bottom:1px solid #266ed9"><span style="color:#266ed9">S</span><span>QL</span><span>ite3</span></span>
-        <code>(v0.7 under development)</code>
+        <span>v0.7</span>
       </h1>
     </div>
-  </div>
-
-  <div style="padding-left: 30px;border-left: 3px solid #d92661;background: #d9262654;">
-    <p>
-      versions <b><0.5</b> are <b>dysfunctional</b>
-    </p>
-  </div>
-  <div style="padding-left: 30px;border-left: 3px solid #d92661;background: #d9262654;">
-    <p>
-      versions <b><0.7</b> contains <b>unclean thread management</b>, which can cause zombie processes
-    </p>
   </div>
 
 ```commandline

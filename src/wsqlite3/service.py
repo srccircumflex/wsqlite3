@@ -261,8 +261,10 @@ class Operator:
 
     async def proc_order___exec(self, order: dict, res: dict):
         try:
-            exec(order.pop("code"), globals(), locals())
-            res["result"] = globals().get("result") or locals().get("result")
+            __globals = globals().copy()
+            __locals = locals().copy()
+            exec(order.pop("code"), __globals, __locals)
+            res["result"] = __globals.get("result") or __locals.get("result")
         except Exception as exc:
             self.exception_handle(order, res, exc)
             return 2
@@ -1381,7 +1383,6 @@ class ConnectionsThread(threading.Thread, ConnectionWorker):
             asyncio.run_coroutine_threadsafe(asyncio.sleep(.001), self.async_loop)
 
 
-@dataclass
 class ServerConfig:
     
     @dataclass
@@ -1392,21 +1393,29 @@ class ServerConfig:
         wait_close: float = 8.0
         force_shutdown: bool = False
         sql_commit: bool = False
-    
-    autoclose: AutocloseConf = AutocloseConf()
 
     @dataclass
     class LockTimeoutConf:
         database: float = 3
         connection: float = 5
-    
-    locktimeout: LockTimeoutConf = LockTimeoutConf()
 
     @dataclass
     class WebSockConf:
         handshake_timeout: float | None = 2
-    
-    ws: WebSockConf = WebSockConf()
+
+    autoclose: AutocloseConf
+    locktimeout: LockTimeoutConf
+    ws: WebSockConf
+
+    def __init__(
+        self,
+        autoclose: ServerConfig.AutocloseConf = AutocloseConf(),
+        locktimeout: ServerConfig.LockTimeoutConf = LockTimeoutConf(),
+        ws: ServerConfig.WebSockConf = WebSockConf(),
+    ):
+        self.autoclose = autoclose
+        self.locktimeout = locktimeout
+        self.ws = ws
 
 
 class Server(threading.Thread):
@@ -1651,7 +1660,7 @@ class Server(threading.Thread):
         self._conn_req_(sock, addr)
 
     def run(self) -> None:
-        """start ConnectionsThread's, open the socket and run the mainloop"""
+        """start ConnectionsThread's, open the socket, and run the mainloop"""
         with self._t_lock:
             threads = self.threads.copy()
             for t in threads:

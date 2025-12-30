@@ -222,7 +222,7 @@ class TestOrders(unittest.TestCase):
         client = wsqlite3.baseclient.Connection("localhost", port)
         client.start()
 
-        resp = client.order().exec("result = print(self.current_connection.thread.id * 100, '\\n', '#' * 100) or 42").__communicate__()[0]
+        resp = client.order().exec("result = print(self.current_connection.thread.id) or 42").__communicate__()[0]
 
         self.assertEqual(resp["_exec"]["result"], 42)
 
